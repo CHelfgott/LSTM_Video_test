@@ -131,7 +131,7 @@ class Conv2DRNN(nn.Module):
   Generate a convolutional RNN cell.
   """
   
-  # input_size is [batch_size, in_features, height, width]
+  # input size is [batch_size, in_features, height, width]
   # The hidden layer is [batch_size, hidden_layers, height, width]
   # The output layer is [batch_size, out_features, height, width]
   def __init__(self, in_features, hidden_layers, out_features):
@@ -143,20 +143,15 @@ class Conv2DRNN(nn.Module):
                            hidden_layers + out_features,
                            KERNEL_SIZE, padding=PADDING)
     
-  def forward(self, input_, prev_state):
+  def step(self, input_, prev_hidden):
     # get batch and spatial sizes
     batch_size = input_.data.size()[0]
     spatial_size = input_.data.size()[2:]
     
     # generate empty prev_state, if None is provided
-    if prev_state is None:
+    if prev_hidden is None:
       state_size = [batch_size, self.hidl] + list(spatial_size)
-      prev_state = (
-          Variable(torch.zeros(state_size)),
-          Variable(torch.zeros(state_size))
-      )
-
-    prev_hidden, prev_cell = prev_state
+      prev_hidden = Variable(torch.zeros(state_size))
     
     # data size is [batch, channel, height, width]
     stacked_inputs = torch.cat((input_, prev_hidden), 1)
@@ -168,7 +163,19 @@ class Conv2DRNN(nn.Module):
     output_layer = gates[:, self.hidl:, :,:]
     
     return hidden, output_layer
-  
+	
+  # Inputs here is [batch_size, num_inputs, input_features, height, width]	
+  def forward(self, inputs, hidden=None):
+	steps = inputs.data.size()[1]
+	outputs = Variable(torch.zeros(list(inputs.data.size()[:2]) + [self.outf] + 
+                                 list(inputs.data.size()[3:])))
+	for i in range(steps):
+    input = inputs[:,i,...]
+    hidden, output = self.step(input, hidden)
+    outputs[:,i,...] = output.unsqueeze(1)
+
+    return hidden, outputs
+    
 
 class VideoNet():
   """
@@ -179,6 +186,23 @@ class VideoNet():
     assert(2 ** math.log(size, 2) == size) # size is a base 2 power
     self.size = size
     self.lr = lr
+    
+    self.rnn_layers = {}
+    for i in [3, 6, 12, 24, 48]:
+      self.rnn_layer[i] = Conv2DRNN(i, 3, 2*i)
+      
+    self.maxpool = nn.MaxPool2D((2,2))
+    self.dropout = nn.DropOut2D(0.1)
+    self.conv2dT = nn.ConvTranspose2D()
+
+  def forward(self, batch_input):
+    rnn_outputs = {}
+    inputs = batch_input
+    for i in [3, 6, 12, 24, 48]:
+      _, rnn_outputs[i] = self.rnn_layer[i].forward(inputs)
+      inputs = torch.stack([sef.dropout(self.maxpool(x)) for x in torch.unbind(rnn_outputs[i], 0)], 0)
+      
+  
   
 def build_net(size, nframes, mode, lr=0.0001):
   assert(2 ** math.log(size, 2) == size) # size is a base 2 power
