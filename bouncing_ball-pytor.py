@@ -177,37 +177,47 @@ class Conv2DRNN(nn.Module):
     return hidden, outputs
     
 
-class VideoNet():
+class VideoNet(nn.Module):
   """
   Generate a network for predicting video
   """
   
   def __init__(self, size, lr=0.0001):
+	super(VideoNet, self).__init__()
     assert(2 ** math.log(size, 2) == size) # size is a base 2 power
     self.size = size
     self.lr = lr
     
     self.rnn_layers = {}
+	self.convT = {}
+	self.conv = {}
     for i in [3, 6, 12, 24, 48]:
-      self.rnn_layer[i] = Conv2DRNN(i, 3, 2*i)
+      self.rnn_layers[i] = Conv2DRNN(i, 3, 2*i)
+	  self.convT[i] = nn.ConvTranspose2D(2*i, i, kernel_size=3, stride=2)
+	  self.conv[i] = nn.Conv2D(3*i, i, kernel_size=KERNEL_SIZE, padding=PADDING)
       
     self.maxpool = nn.MaxPool2D((2,2))
     self.dropout = nn.DropOut2D(0.1)
-    self.conv2dT = nn.ConvTranspose2D()
 
   def forward(self, batch_input):
     rnn_outputs = {}
-    inputs = batch_input
-    for i in [3, 6, 12, 24, 48]:
-      _, rnn_outputs[i] = self.rnn_layer[i].forward(inputs)
-      inputs = torch.stack([sef.dropout(self.maxpool(x)) for x in torch.unbind(rnn_outputs[i], 0)], 0)
-      
-  
-  
-def build_net(size, nframes, mode, lr=0.0001):
-  assert(2 ** math.log(size, 2) == size) # size is a base 2 power
-  
-
-
+    layer = batch_input  # layer is [NBatch, NFrames, 3, H, W], H = W = size
+    for i in [3, 6, 12, 24]:
+      _, rnn_outputs[i] = self.rnn_layers[i].forward(layer)
+	  # rnn_outputs is [NBatch, NFrames, 2*i, H(layer), W(layer)]
+      layer = torch.stack([self.dropout(self.maxpool(x)) for x in torch.unbind(rnn_outputs[i], 0)], 0)
+	  # layer is [NBatch, NFrames, 2*i, H/2, W/2]
     
-          
+    for i in [24, 12, 6, 3]:
+	  layer = torch.stack([self.dropout(self.convT[i].forward(x)) for x in torch.unbind(layer, 0)], 0)
+	  # layer is [NBatch, NFrames, i, 2*H(layer), 2*W(layer)]
+	  layer = torch.cat(rnn_outputs[i], layer, 1)
+	  # layer is [NBatch, NFrames, 3*i, 2*H(layer), 2*W(layer)]
+	  layer = torch.stack([self.conv[i].forward(x) for x in torch.unbind(layer, 0)], 0)
+	  # layer is [NBatch, NFrames, i, 2*H(layer), 2*W(layer)]
+	  
+	return layer
+	
+def train(start_iter, end_iter, size=512, model, batch_size=25, num_per_epoch=1000, epochs=100):
+  loss = nn.MSELoss(reduce=False)
+  
