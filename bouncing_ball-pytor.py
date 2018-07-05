@@ -6,6 +6,9 @@ Simple video prediction task -- NN test
 """
 
 import cv2, numpy as np, os, random, math, glob
+import sys
+import time
+import datetime
 import skvideo.io as vidio
 import torch, torch.nn as nn, torch.nn.functional as F, torch.optim as optim
 from torch.autograd import Variable
@@ -218,6 +221,109 @@ class VideoNet(nn.Module):
 	  
 	return layer
 	
-def train(start_iter, end_iter, size=512, model, batch_size=25, num_per_epoch=1000, epochs=100):
+def train(epoch, size=512, model, batch_size=25, num_per_epoch=1000, epochs=100):
   loss = nn.MSELoss(reduce=False)
+ 
+  losses = AverageMeter()
+  batch_time = AverageMeter()
+  data_time = AverageMeter()
+
+  model.train()
+
+  end = time.time()
+ 
   
+def main():
+  parser = argparse.ArgumentParser(description='Train video prediction model')
+  parser.add_argument('--size', type=int, default=512,
+                      help="size of the square video patch (default: 512)")
+  parser.add_argument('--max-epoch', default=60, type=int,
+                      help="maximum epochs to run")
+  parser.add_argument('--start-epoch', default=0, type=int,
+                      help="manual epoch number (useful on restarts)")
+  parser.add_argument('--train-batch', default=32, type=int,
+                      help="train batch size")
+  parser.add_argument('--lr', '--learning-rate', default=0.0003, type=float,
+                      help="initial learning rate")                    
+  parser.add_argument('--resume', type=str, default='', metavar='PATH')
+  parser.add_argument('--evaluate', action='store_true', help="evaluation only")
+  parser.add_argument('--save-dir', type=str, default='log')
+  parser.add_argument('--use-cpu', action='store_true', help="use cpu")
+  parser.add_argument('--gpu-devices', default='0', type=str,
+                      help='gpu device ids for CUDA_VISIBLE_DEVICES')
+  args = parser.parse_args()
+  
+  os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu_devices
+  use_gpu = torch.cuda.is_available()
+  if args.use_cpu: use_gpu = False
+
+  if not args.evaluate:
+    sys.stdout = Logger(osp.join(args.save_dir, 'log_train.txt'))
+  else:
+    sys.stdout = Logger(osp.join(args.save_dir, 'log_test.txt'))
+  print("==========\nArgs:{}\n==========".format(args))
+
+  if use_gpu:
+    print("Currently using GPU {}".format(args.gpu_devices))
+    cudnn.benchmark = True
+    torch.cuda.manual_seed_all(args.seed)
+  else:
+    print("Currently using CPU (GPU is highly recommended)")
+	
+  print("Initializing model: {}".format(args.arch))
+  model = VideoNet(args.size)
+  print("Model size: {:.5f}M".format(sum(p.numel() for p in model.parameters())/1000000.0))	
+  
+  start_epoch = args.start_epoch
+
+  if args.resume:
+    print("Loading checkpoint from '{}'".format(args.resume))
+    checkpoint = torch.load(args.resume)
+    model.load_state_dict(checkpoint['state_dict'])
+    start_epoch = checkpoint['epoch']
+
+  if use_gpu:
+    model = nn.DataParallel(model).cuda()
+
+  if args.evaluate:
+    print("Evaluate only")
+    test(model, use_gpu)
+    return
+
+  start_time = time.time()
+  train_time = 0
+  best_rank1 = -np.inf
+  best_epoch = 0
+  print("==> Start training")
+
+  for epoch in range(start_epoch, args.max_epoch):
+    start_train_time = time.time()
+    train(epoch, model, optimizer_model, use_gpu)
+    train_time += round(time.time() - start_train_time)
+        
+    if (epoch+1) == args.max_epoch:
+      print("==> Test")
+      rank1 = test(model, queryloader, galleryloader, use_gpu)
+      is_best = rank1 > best_rank1
+      if is_best:
+        best_rank1 = rank1
+        best_epoch = epoch + 1
+
+      if use_gpu:
+        state_dict = model.module.state_dict()
+      else:
+        state_dict = model.state_dict()
+      save_checkpoint({ 'state_dict': state_dict, 'rank1': rank1, 'epoch': epoch,
+                      }, is_best, 
+                      osp.join(args.save_dir, 'checkpoint_ep' + str(epoch+1) + '.pth.tar'))
+
+    print("==> Best Rank-1 {:.1%}, achieved at epoch {}".format(best_rank1, best_epoch))
+
+    elapsed = round(time.time() - start_time)
+    elapsed = str(datetime.timedelta(seconds=elapsed))
+    train_time = str(datetime.timedelta(seconds=train_time))
+    print("Finished. Total elapsed time (h:m:s): {}. Training time (h:m:s): {}.".format(elapsed, train_time))
+    
+    
+if __name__ == '__main__':
+  main()
