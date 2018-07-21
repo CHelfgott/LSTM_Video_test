@@ -185,15 +185,12 @@ class VideoNet(nn.Module):
   Generate a network for predicting video
   """
   
-  def __init__(self, size, lr=0.0001):
-	super(VideoNet, self).__init__()
-    assert(2 ** math.log(size, 2) == size) # size is a base 2 power
-    self.size = size
-    self.lr = lr
+  def __init__(self, **kwargs):
+    super(VideoNet, self).__init__()
     
     self.rnn_layers = {}
-	self.convT = {}
-	self.conv = {}
+    self.convT = {}
+    self.conv = {}
     for i in [3, 6, 12, 24, 48]:
       self.rnn_layers[i] = Conv2DRNN(i, 3, 2*i)
 	  self.convT[i] = nn.ConvTranspose2D(2*i, i, kernel_size=3, stride=2)
@@ -205,6 +202,10 @@ class VideoNet(nn.Module):
   def forward(self, batch_input):
     rnn_outputs = {}
     layer = batch_input  # layer is [NBatch, NFrames, 3, H, W], H = W = size
+    height = batch_input.data.size()[3]
+    assert(batch_input.data.size()[4] == height)  # height = width
+    assert(2 ** math.log(height, 2) == height)    # height is a power of 2
+    
     for i in [3, 6, 12, 24]:
       _, rnn_outputs[i] = self.rnn_layers[i].forward(layer)
 	  # rnn_outputs is [NBatch, NFrames, 2*i, H(layer), W(layer)]
@@ -218,17 +219,42 @@ class VideoNet(nn.Module):
 	  # layer is [NBatch, NFrames, 3*i, 2*H(layer), 2*W(layer)]
 	  layer = torch.stack([self.conv[i].forward(x) for x in torch.unbind(layer, 0)], 0)
 	  # layer is [NBatch, NFrames, i, 2*H(layer), 2*W(layer)]
-	  
-	return layer
 	
-def train(epoch, size=512, model, batch_size=25, num_per_epoch=1000, epochs=100):
+  if not self.training:
+    return layer
+    
   loss = nn.MSELoss(reduce=False)
- 
+  return loss(batch_inputs, layer)
+	
+  
+def train(epoch, video_size, model, optimizer_model, use_gpu,
+          samples_per_epoch = 1000, batch_size=25):
   losses = AverageMeter()
   batch_time = AverageMeter()
   data_time = AverageMeter()
 
-  model.train()
+  n_iters = samples_per_epoch / batch_size
+  for iter in range(n_iters):
+    video_inputs = np.zeros([batch_size, NUM_FRAMES, 3, video_size, video_size])
+    for i in range(batch_size):
+      num_balls = random.randint(4,12)
+      video_input = buildBouncingBallVideo(num_balls, 
+                                           [video_size, video_size], 
+                                           NUM_FRAMES)
+      video_inputs[i,...] = video_input
+      
+    inputs = Variable(torch.from_numpy(video_inputs).float())
+
+    loss = model(inputs)
+
+    optimizer_model.zero_grad()
+    loss.backward()
+    optimizer_model.step()
+
+    losses[epoch] += loss.data[0]
+
+  if epoch > 0:
+    print(epoch, loss.data[0])
 
   end = time.time()
  
@@ -237,7 +263,7 @@ def main():
   parser = argparse.ArgumentParser(description='Train video prediction model')
   parser.add_argument('--size', type=int, default=512,
                       help="size of the square video patch (default: 512)")
-  parser.add_argument('--max-epoch', default=60, type=int,
+  parser.add_argument('--max-epoch', default=NUM_EPOCHS, type=int,
                       help="maximum epochs to run")
   parser.add_argument('--start-epoch', default=0, type=int,
                       help="manual epoch number (useful on restarts)")
@@ -270,12 +296,14 @@ def main():
   else:
     print("Currently using CPU (GPU is highly recommended)")
 	
-  print("Initializing model: {}".format(args.arch))
-  model = VideoNet(args.size)
+  print("Initializing model")
+  model = VideoNet()
   print("Model size: {:.5f}M".format(sum(p.numel() for p in model.parameters())/1000000.0))	
   
   start_epoch = args.start_epoch
 
+  optimizer_model = torch.optim.Adam(model.parameters(), lr=args.lr)
+  
   if args.resume:
     print("Loading checkpoint from '{}'".format(args.resume))
     checkpoint = torch.load(args.resume)
@@ -298,12 +326,12 @@ def main():
 
   for epoch in range(start_epoch, args.max_epoch):
     start_train_time = time.time()
-    train(epoch, model, optimizer_model, use_gpu)
+    train(epoch, arg.size, model, optimizer_model, use_gpu)
     train_time += round(time.time() - start_train_time)
         
-    if (epoch+1) == args.max_epoch:
+    if (epoch+1) % 5 == 0 or (epoch+1) == args.max_epoch:
       print("==> Test")
-      rank1 = test(model, queryloader, galleryloader, use_gpu)
+      rank1 = test(model, args.size, use_gpu)
       is_best = rank1 > best_rank1
       if is_best:
         best_rank1 = rank1
