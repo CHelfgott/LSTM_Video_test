@@ -9,24 +9,32 @@ import cv2, numpy as np, os, random, math, glob
 import sys
 import time
 import datetime
+import skvideo
+skvideo.setFFmpegPath('c:/programdata/anaconda3/library/bin')
 import skvideo.io as vidio
 import torch, torch.nn as nn, torch.nn.functional as F, torch.optim as optim
 from torch.autograd import Variable
 import argparse
 
+NUM_DIMS = 4
+
 INPUT_SIZE = 512
-NUM_FRAMES = 50
+NUM_FRAMES = 1000
 NUM_EPOCHS = 100
 KERNEL_SIZE = 3
 PADDING = KERNEL_SIZE // 2
+
+def str2bool(v):
+    return v.lower() in ("yes", "true", "t", "1")
+
 
 class BouncingBall:
   """ A class to store data on a bouncing ball.
 
     :param int radius: radius of ball
     :param ndarray([3], int) color: RGB color of ball
-    :param ndarray([2], float) position: XY position of ball
-    :param ndarray([2], float) velocity: XY velocity of ball
+    :param ndarray([NUM_DIMS], float) position: position of ball
+    :param ndarray([NUM_DIMS], float) velocity: velocity of ball
 
   """  
 
@@ -60,59 +68,57 @@ class BouncingBall:
   
 class BoundingBox:
   """ A class to store data on a bounding box with reflective walls.
-      Southeast corner is assumed to be at (0,0).
+      One corner is assumed to be at (0,0).
       Contains utility methods to reflect positions into the box.
   
-    :param ndarray([2], int) corner: XY position of northeast corner.
+    :param ndarray([NUM_DIMS], int) corner: position of opposite corner.
     
   """
   def __init__(self, corner):
     self.corner = corner
     
-  def isInXBounds(self, position):
-    return (position[0] >= 0 and position[0] <= self.corner[0])
-  
-  def isInYBounds(self, position):
-    return (position[1] >= 0 and position[1] <= self.corner[1])
+  def isInBounds(self, position, dim):
+    return (position[dim] >= 0 and position[dim] <= self.corner[dim])
   
   def reflectIntoBox(self, position):
     new_position = position
-    x_flip = False
-    y_flip = False
-    if not self.isInXBounds(position):
-      new_position[0] = position[0] % (2 * self.corner[0])
-      if new_position[0] > self.corner[0]:
-        new_position[0] = 2 * self.corner[0] - new_position[0]
-        x_flip = True
-    if not self.isInYBounds(position):
-      new_position[1] = position[1] % (2 * self.corner[1])
-      if new_position[1] > self.corner[1]:
-        new_position[1] = 2 * self.corner[1] - new_position[1]
-        y_flip = True
-    return new_position, x_flip, y_flip
+    flips = []
+    for dim in range(len(self.corner)):
+      flips.append(False)
+      if not self.isInBounds(position, dim):
+        new_position[dim] = position[dim] % (2 * self.corner[dim])
+        if new_position[dim] > self.corner[dim]:
+          new_position[dim] = 2 * self.corner[dim] - new_position[dim]
+          flips[dim] = True
+
+    return new_position, flips
   
 
 def bounceBallInBox(ball, box):
   ball.updatePosition()
-  new_position, x_flip, y_flip = box.reflectIntoBox(ball.getPosition())
+  new_position, flips = box.reflectIntoBox(ball.getPosition())
   ball.setPosition(new_position)
-  if x_flip or y_flip:
-    v = ball.getVelocity()
-    if x_flip: v[0] = -v[0]
-    if y_flip: v[1] = -v[1]
-    ball.setVelocity(v)
+  v = ball.getVelocity()
+  for dim in range(NUM_DIMS):
+    if flips[dim]: v[dim] = -v[dim]
+  ball.setVelocity(v)
   
 
 def buildBouncingBallVideo(nBalls, vidSize, nFrames):
-  box = BoundingBox(vidSize)
-  minBallSize = 16
-  maxBallSize = min(vidSize[0], vidSize[1]) / 16
+  minBallSize = 50
+  maxBallSize = int(min(vidSize[0], vidSize[1]) / 3)
   balls = []
+  vSizes = [vidSize[0], vidSize[1]]
+  for dim in range(2, NUM_DIMS):
+    vSizes.append(random.randint(vidSize[0], vidSize[1]))
+  box = BoundingBox(vSizes)
   for i in range(nBalls):
     color = [random.randint(0,255),random.randint(0,255),random.randint(0,255)]
-    position = np.array([random.uniform(0.,vidSize[0]), 
-                         random.uniform(0.,vidSize[1])])
-    velocity = np.array([random.uniform(-15.,15.), random.uniform(-15.,15.)])
+    position = np.zeros(NUM_DIMS)
+    velocity = np.zeros(NUM_DIMS)
+    for dim in range(NUM_DIMS):
+      position[dim] = random.uniform(0., vSizes[dim])
+      velocity[dim] = random.uniform(-12., 12.)
     balls.append(BouncingBall(random.randint(minBallSize, maxBallSize),
                               color, position, velocity))
   
@@ -121,9 +127,13 @@ def buildBouncingBallVideo(nBalls, vidSize, nFrames):
     frame = np.zeros([vidSize[1], vidSize[0], 3], dtype=np.uint8)
     for ball in balls:
       position = ball.getPosition()
-      position = (int(round(position[0])), int(round(position[1])))
+      relPosition = position[2:] - np.array(vSizes[2:])/2
+      planeDistSq = np.sum(relPosition * relPosition)
+      center = (int(round(position[0])), int(round(position[1])))
       color = tuple(ball.getColor())
-      cv2.circle(frame, position, ball.getRadius(), color, -1)
+      r = ball.getRadius()
+      if r*r > planeDistSq:
+        cv2.circle(frame, center, int(round(np.sqrt(r*r - planeDistSq))), color, -1)
       bounceBallInBox(ball, box)     
     videoArray[frameCnt, ...] = frame
   return videoArray
@@ -169,13 +179,13 @@ class Conv2DRNN(nn.Module):
 	
   # Inputs here is [batch_size, num_inputs, input_features, height, width]	
   def forward(self, inputs, hidden=None):
-	steps = inputs.data.size()[1]
-	outputs = Variable(torch.zeros(list(inputs.data.size()[:2]) + [self.outf] + 
-                                 list(inputs.data.size()[3:])))
-	for i in range(steps):
-    input = inputs[:,i,...]
-    hidden, output = self.step(input, hidden)
-    outputs[:,i,...] = output.unsqueeze(1)
+    steps = inputs.data.size()[1]
+    outputs = Variable(torch.zeros(list(inputs.data.size()[:2]) + [self.outf] + 
+                                   list(inputs.data.size()[3:])))
+    for i in range(steps):
+      input = inputs[:,i,...]
+      hidden, output = self.step(input, hidden)
+      outputs[:,i,...] = output.unsqueeze(1)
 
     return hidden, outputs
     
@@ -193,8 +203,8 @@ class VideoNet(nn.Module):
     self.conv = {}
     for i in [3, 6, 12, 24, 48]:
       self.rnn_layers[i] = Conv2DRNN(i, 3, 2*i)
-	  self.convT[i] = nn.ConvTranspose2D(2*i, i, kernel_size=3, stride=2)
-	  self.conv[i] = nn.Conv2D(3*i, i, kernel_size=KERNEL_SIZE, padding=PADDING)
+      self.convT[i] = nn.ConvTranspose2D(2*i, i, kernel_size=3, stride=2)
+      self.conv[i] = nn.Conv2D(3*i, i, kernel_size=KERNEL_SIZE, padding=PADDING)
       
     self.maxpool = nn.MaxPool2D((2,2))
     self.dropout = nn.DropOut2D(0.1)
@@ -213,18 +223,18 @@ class VideoNet(nn.Module):
 	  # layer is [NBatch, NFrames, 2*i, H/2, W/2]
     
     for i in [24, 12, 6, 3]:
-	  layer = torch.stack([self.dropout(self.convT[i].forward(x)) for x in torch.unbind(layer, 0)], 0)
-	  # layer is [NBatch, NFrames, i, 2*H(layer), 2*W(layer)]
-	  layer = torch.cat(rnn_outputs[i], layer, 1)
-	  # layer is [NBatch, NFrames, 3*i, 2*H(layer), 2*W(layer)]
-	  layer = torch.stack([self.conv[i].forward(x) for x in torch.unbind(layer, 0)], 0)
-	  # layer is [NBatch, NFrames, i, 2*H(layer), 2*W(layer)]
+      layer = torch.stack([self.dropout(self.convT[i].forward(x)) for x in torch.unbind(layer, 0)], 0)
+      # layer is [NBatch, NFrames, i, 2*H(layer), 2*W(layer)]
+      layer = torch.cat(rnn_outputs[i], layer, 1)
+      # layer is [NBatch, NFrames, 3*i, 2*H(layer), 2*W(layer)]
+      layer = torch.stack([self.conv[i].forward(x) for x in torch.unbind(layer, 0)], 0)
+      # layer is [NBatch, NFrames, i, 2*H(layer), 2*W(layer)]
 	
-  if not self.training:
-    return layer
+    if not self.training:
+      return layer
     
-  loss = nn.MSELoss(reduce=False)
-  return loss(batch_inputs, layer)
+    loss = nn.MSELoss(reduce=False)
+    return loss(batch_inputs, layer)
 	
   
 def train(epoch, video_size, model, optimizer_model, use_gpu,
@@ -261,6 +271,8 @@ def train(epoch, video_size, model, optimizer_model, use_gpu,
   
 def main():
   parser = argparse.ArgumentParser(description='Train video prediction model')
+  parser.add_argument('--just_video', type=str2bool, default=False,
+                      help="flag to just generate one video")
   parser.add_argument('--size', type=int, default=512,
                       help="size of the square video patch (default: 512)")
   parser.add_argument('--max-epoch', default=NUM_EPOCHS, type=int,
@@ -278,6 +290,11 @@ def main():
   parser.add_argument('--gpu-devices', default='0', type=str,
                       help='gpu device ids for CUDA_VISIBLE_DEVICES')
   args = parser.parse_args()
+  
+  if args.just_video:
+    out_video = buildBouncingBallVideo(50, [args.size, args.size], NUM_FRAMES)
+    vidio.vwrite("test_video.mp4", out_video)
+    return
   
   os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu_devices
   use_gpu = torch.cuda.is_available()
