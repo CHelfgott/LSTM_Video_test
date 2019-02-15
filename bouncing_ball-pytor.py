@@ -103,7 +103,49 @@ def bounceBallInBox(ball, box):
     if flips[dim]: v[dim] = -v[dim]
   ball.setVelocity(v)
   
+# Assume lightDirection is an ndarray 3-vector with positive z-component.
+def drawBall(ball, vSizes, lightDirection, frame):
+  position = ball.getPosition()
+  color = tuple(ball.getColor())
+  r = ball.getRadius()
+  center = (int(round(position[0])), int(round(position[1])))
 
+  if len(lightDirection) != 3 or lightDirection[2] <= 0 or len(vSizes) < 3:
+    relPosition = position[2:] - np.array(vSizes[2:])/2
+    planeDistSq = np.sum(relPosition * relPosition)
+    if r*r <= planeDistSq: return
+    inPlaneRadius = int(round(np.sqrt(r*r - planeDistSq)))
+    cv2.circle(frame, center, inPlaneRadius, color, -1)
+    return
+    
+  relPosition = position[3:] - np.array(vSizes[3:])/2
+  distSq = np.sum(relPosition * relPosition)
+  if r*r <= distSq: return
+  newRadius = int(np.sqrt(r*r - distSq))
+  partialFrame = np.zeros([2 * newRadius + 1, 2 * newRadius + 1])
+  xyMesh = np.mgrid([-newRadius : newRadius+1, -newRadius : newRadius+1])
+  rSqFn = np.sum(xyMesh * xyMesh, axis=0)
+  dzSqFn = np.max((r*r - distSq) * np.ones(rSqFn.shape) - rSqFn, np.zeros(rSqFn.shape))
+  for x in range(max(0, center[0] - newRadius), min(vSizes[0], center[0] + newRadius)):
+    for y in range(max(0, center[1] - newRadius), min(vSizes[1], center[1] + newRadius)):
+      dx = x - center[0]
+      dy = y - center[1]
+      if dx*dx + dy*dy > r*r - distSq: continue
+      dz = int(round(np.sqrt(r*r - distSq - dx*dx - dy*dy)))
+#      z = relPosition[0] - dz
+      incidence = dx * lightDirection[0] + dy * lightDirection[1] - dz * lightDirection[2]
+      incidence /= newRadius * np.sqrt(np.sum(lightDirection * lightDirection))
+      toEye = dz / newRadius
+      fadeFactor = 0.05
+      if incidence < 0:
+        fadeFactor -= 0.95 * incidence
+      fadeFactor *= toEye
+      newColor = np.array([0,0,0], dtype=np.int8)
+      for i in range(3):
+        newColor[i] = int(round(fadeFactor * float(color[i])))
+      frame[x][y] = newColor
+
+  
 def buildBouncingBallVideo(nBalls, vidSize, nFrames):
   minBallSize = 50
   maxBallSize = int(min(vidSize[0], vidSize[1]) / 3)
@@ -118,22 +160,19 @@ def buildBouncingBallVideo(nBalls, vidSize, nFrames):
     velocity = np.zeros(NUM_DIMS)
     for dim in range(NUM_DIMS):
       position[dim] = random.uniform(0., vSizes[dim])
-      velocity[dim] = random.uniform(-12., 12.)
+      velocity[dim] = random.uniform(-vSizes[dim]/(np.sqrt(NUM_DIMS) * 32.),
+                                     vSizes[dim]/(np.sqrt(NUM_DIMS) * 32.))
+    velocity[0] = random.uniform(-vSizes[0]/32., vSizes[0]/32.)
+    velocity[1] = random.uniform(-vSizes[1]/32., vSizes[1]/32.)
     balls.append(BouncingBall(random.randint(minBallSize, maxBallSize),
                               color, position, velocity))
   
+  lightDir = np.array([random.uniform(-1.,1.), random.uniform(-1.,1.), random.uniform(0.1, 1.)])
   videoArray = np.zeros([nFrames, vidSize[1], vidSize[0], 3], dtype=np.uint8)
   for frameCnt in range(nFrames):
     frame = np.zeros([vidSize[1], vidSize[0], 3], dtype=np.uint8)
     for ball in balls:
-      position = ball.getPosition()
-      relPosition = position[2:] - np.array(vSizes[2:])/2
-      planeDistSq = np.sum(relPosition * relPosition)
-      center = (int(round(position[0])), int(round(position[1])))
-      color = tuple(ball.getColor())
-      r = ball.getRadius()
-      if r*r > planeDistSq:
-        cv2.circle(frame, center, int(round(np.sqrt(r*r - planeDistSq))), color, -1)
+      drawBall(ball, vSizes, lightDir, frame)
       bounceBallInBox(ball, box)     
     videoArray[frameCnt, ...] = frame
   return videoArray
