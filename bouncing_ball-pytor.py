@@ -16,7 +16,7 @@ import torch, torch.nn as nn, torch.nn.functional as F, torch.optim as optim
 from torch.autograd import Variable
 import argparse
 
-NUM_DIMS = 4
+NUM_DIMS = 3
 
 INPUT_SIZE = 512
 NUM_FRAMES = 1000
