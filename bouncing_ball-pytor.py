@@ -122,10 +122,27 @@ def drawBall(ball, vSizes, lightDirection, frame):
   distSq = np.sum(relPosition * relPosition)
   if r*r <= distSq: return
   newRadius = int(np.sqrt(r*r - distSq))
-  partialFrame = np.zeros([2 * newRadius + 1, 2 * newRadius + 1])
   xyMesh = np.mgrid([-newRadius : newRadius+1, -newRadius : newRadius+1])
   rSqFn = np.sum(xyMesh * xyMesh, axis=0)
   dzSqFn = np.max((r*r - distSq) * np.ones(rSqFn.shape) - rSqFn, np.zeros(rSqFn.shape))
+  dzFn = np.sqrt(dzSqFn)
+  incidence = xyMesh[0] * lightDirection[0] + xyMesh[1] * lightDirection[1] - dzFn * lightDirection[2]
+  incidence /= newRadius * np.sqrt(np.sum(lightDirection * lightDirection))
+  toEye = dz / newRadius
+  fadeFactor = 0.05 * (dzFn > 0)
+  fadeFactor -= 0.95 * incidence * (incidence < 0) * (dzFn > 0)
+  fadeFactor *= toEye
+  xmin = max(0, center[0] - newRadius)
+  xmax = min(vSizes[0], center[0] + newRadius)
+  ymin = max(0, center[1] - newRadius)
+  ymax = min(vSizes[1], center[1] + newRadius)
+  newColor = np.stack([np.int(color[i] * fadeFactor) for i in range(3)], axis=2)
+  frame[xmin:xmax, ymin:ymax, :] = np.where(
+    dzFn[xmin-center[0] : xmax-center[0], ymin-center[1] : ymax-center[1]] > 0,
+    newColor[xmin-center[0] : xmax-center[0], ymin-center[1] : ymax-center[1], :],
+    frame[xmin:xmax, ymin:ymax, :])
+  
+"""  
   for x in range(max(0, center[0] - newRadius), min(vSizes[0], center[0] + newRadius)):
     for y in range(max(0, center[1] - newRadius), min(vSizes[1], center[1] + newRadius)):
       dx = x - center[0]
@@ -144,7 +161,7 @@ def drawBall(ball, vSizes, lightDirection, frame):
       for i in range(3):
         newColor[i] = int(round(fadeFactor * float(color[i])))
       frame[x][y] = newColor
-
+"""
   
 def buildBouncingBallVideo(nBalls, vidSize, nFrames):
   minBallSize = 50
