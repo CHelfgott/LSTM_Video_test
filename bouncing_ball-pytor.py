@@ -10,13 +10,12 @@ import sys
 import time
 import datetime
 import skvideo
-skvideo.setFFmpegPath('c:/programdata/anaconda3/library/bin')
 import skvideo.io as vidio
 import torch, torch.nn as nn, torch.nn.functional as F, torch.optim as optim
 from torch.autograd import Variable
 import argparse
 
-NUM_DIMS = 4
+NUM_DIMS = 3
 
 INPUT_SIZE = 512
 NUM_FRAMES = 1000
@@ -141,27 +140,7 @@ def drawBall(ball, vSizes, lightDirection, frame):
   newColor = np.stack([color[i] * fadeFactor for i in range(3)], axis=2)
   frame[xmin:xmax, ymin:ymax, :] = np.where(
     np.expand_dims(dzFn, axis=2) > 0, newColor, frame[xmin:xmax, ymin:ymax, :])
-  
-"""  
-  for x in range(max(0, center[0] - newRadius), min(vSizes[0], center[0] + newRadius)):
-    for y in range(max(0, center[1] - newRadius), min(vSizes[1], center[1] + newRadius)):
-      dx = x - center[0]
-      dy = y - center[1]
-      if dx*dx + dy*dy > r*r - distSq: continue
-      dz = int(round(np.sqrt(r*r - distSq - dx*dx - dy*dy)))
-#      z = relPosition[0] - dz
-      incidence = dx * lightDirection[0] + dy * lightDirection[1] - dz * lightDirection[2]
-      incidence /= newRadius * np.sqrt(np.sum(lightDirection * lightDirection))
-      toEye = dz / newRadius
-      fadeFactor = 0.05
-      if incidence < 0:
-        fadeFactor -= 0.95 * incidence
-      fadeFactor *= toEye
-      newColor = np.array([0,0,0], dtype=np.int8)
-      for i in range(3):
-        newColor[i] = int(round(fadeFactor * float(color[i])))
-      frame[x][y] = newColor
-"""
+
   
 def buildBouncingBallVideo(nBalls, vidSize, nFrames):
   minBallSize = 50
@@ -184,12 +163,14 @@ def buildBouncingBallVideo(nBalls, vidSize, nFrames):
     balls.append(BouncingBall(random.randint(minBallSize, maxBallSize),
                               color, position, velocity))
   
-  lightDir = np.array([random.uniform(-1.,1.), random.uniform(-1.,1.), random.uniform(0.1, 1.)])
+  lightDir = np.array([random.uniform(-3.,3.), random.uniform(-3.,3.), 1.])
+  lightVel = np.array([random.uniform(-0.001,0.001), random.uniform(-0.001,0.001), 0.])
   videoArray = np.zeros([nFrames, vidSize[1], vidSize[0], 3], dtype=np.uint8)
   for frameCnt in range(nFrames):
     frame = np.zeros([vidSize[1], vidSize[0], 3], dtype=np.uint8)
     for ball in balls:
       drawBall(ball, vSizes, lightDir, frame)
+      lightDir += lightVel
       bounceBallInBox(ball, box)     
     videoArray[frameCnt, ...] = frame
   return videoArray
@@ -348,7 +329,7 @@ def main():
   args = parser.parse_args()
   
   if args.just_video:
-    out_video = buildBouncingBallVideo(50, [args.size, args.size], NUM_FRAMES)
+    out_video = buildBouncingBallVideo(20, [args.size, args.size], NUM_FRAMES)
     vidio.vwrite("test_video.mp4", out_video)
     return
   
