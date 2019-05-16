@@ -9,9 +9,8 @@ import cv2, numpy as np, os, random, math
 import os.path as osp
 import time
 import datetime
-import skvideo
 import skvideo.io as vidio
-import torch, torch.nn as nn, torch.nn.functional as F, torch.optim as optim
+import torch, torch.nn as nn, torch.optim as optim
 from torch.autograd import Variable
 import torch.backends.cudnn as cudnn
 import argparse
@@ -241,9 +240,7 @@ class Conv2DRNN(nn.Module):
     for i in range(steps):
       input = inputs[:,i,...].squeeze()
       hidden, output = self.step(input, hidden)
-      print('Craig Beta: ' + self.outf)
-      outputs[:,i,...] = output.unsqueeze(1)
-
+      outputs[:,i,...] = output
     return hidden, outputs
     
 
