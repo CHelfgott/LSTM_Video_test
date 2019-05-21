@@ -43,6 +43,23 @@ class AverageMeter(object):
     self.sum += val * n
     self.count += n
     self.avg = self.sum / self.count if self.count != 0 else 0
+    
+    
+class ProgressMeter(object):
+    def __init__(self, num_batches, *meters, prefix=""):
+        self.batch_fmtstr = self._get_batch_fmtstr(num_batches)
+        self.meters = meters
+        self.prefix = prefix
+
+    def print(self, batch):
+        entries = [self.prefix + self.batch_fmtstr.format(batch)]
+        entries += [str(meter) for meter in self.meters]
+        print('\t'.join(entries))
+
+    def _get_batch_fmtstr(self, num_batches):
+        num_digits = len(str(num_batches // 1))
+        fmt = '{:' + str(num_digits) + 'd}'
+        return '[' + fmt + '/' + fmt.format(num_batches) + ']'
 
 
 class BouncingBall:
@@ -324,9 +341,42 @@ def train(epoch, video_size, model, optimizer_model, use_gpu,
 
   if epoch > 0:
     print(epoch, loss.data[0])
+    
+    
+def test(model, video_size, use_gpu):
+  num_tests = 100
+  batch_size = 25
+  
+  batch_time = AverageMeter('Time', ':6.3f')
+  losses = AverageMeter('Loss', ':.4e')
+  progress = ProgressMeter(num_tests, batch_time, losses, prefix='Test: ')
 
+  model.eval()
+  with torch.no_grad():
+    end = time.time()
+    for iter in range(num_tests):
+      video_inputs = np.zeros([batch_size, NUM_FRAMES, 3, video_size, video_size])
+      for i in range(batch_size):
+        num_balls = random.randint(4,12)
+        video_input = buildBouncingBallVideo(num_balls, 
+                                             [video_size, video_size], 
+                                             NUM_FRAMES)
+        video_inputs[i,...] = np.squeeze(np.stack(np.split(video_input, 3, axis=3), 1))
+        
+      inputs = Variable(torch.from_numpy(video_inputs).float())
 
- 
+      loss = model(inputs)
+      losses.update(loss, batch_size)
+      
+      # measure elapsed time
+      batch_time.update(time.time() - end)
+      end = time.time()
+      
+      if iter % 20 == 0:
+        progress.print(iter)
+
+  return losses.avg
+
   
 def main():
   parser = argparse.ArgumentParser(description='Train video prediction model')
@@ -368,7 +418,6 @@ def main():
   if use_gpu:
     print("Currently using GPU {}".format(args.gpu_devices))
     cudnn.benchmark = True
-    torch.cuda.manual_seed_all(args.seed)
   else:
     print("Currently using CPU (GPU is highly recommended)")
 	
@@ -391,7 +440,7 @@ def main():
 
   if args.evaluate:
     print("Evaluate only")
-    test(model, use_gpu)
+    test(model, args.size, use_gpu)
     return
 
   start_time = time.time()
@@ -406,7 +455,7 @@ def main():
     train_time += round(time.time() - start_train_time)
         
     if (epoch+1) % 5 == 0 or (epoch+1) == args.max_epoch:
-      print("==> Test")
+      print("==> Test: {}".format(epoch))
       rank1 = test(model, args.size, use_gpu)
       is_best = rank1 > best_rank1
       if is_best:
