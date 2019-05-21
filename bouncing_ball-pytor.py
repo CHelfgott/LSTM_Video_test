@@ -220,7 +220,7 @@ class Conv2DRNN(nn.Module):
   # The hidden layer is [batch_size, hidden_layers, height, width]
   # The output layer is [batch_size, out_features, height, width]
   def __init__(self, in_features, hidden_layers, out_features):
-    super().__init__()
+    super(Conv2DRNN, self).__init__()
     self.inf = in_features
     self.hidl = hidden_layers
     self.outf = out_features
