@@ -349,7 +349,7 @@ def test(model, video_size, use_gpu):
   
   batch_time = AverageMeter('Time', ':6.3f')
   losses = AverageMeter('Loss', ':.4e')
-  progress = ProgressMeter(num_tests, prefix='Test: ', batch_time, losses)
+  progress = ProgressMeter(num_tests, 'Test: ', batch_time, losses)
 
   model.eval()
   with torch.no_grad():
