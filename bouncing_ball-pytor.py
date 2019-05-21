@@ -51,7 +51,7 @@ class ProgressMeter(object):
     self.meters = meters
     self.prefix = prefix
 
-  def print(self, batch):
+  def printb(self, batch):
     entries = [self.prefix + self.batch_fmtstr.format(batch)]
     entries += [str(meter) for meter in self.meters]
     print('\t'.join(entries))
@@ -373,7 +373,7 @@ def test(model, video_size, use_gpu):
       end = time.time()
       
       if iter % 20 == 0:
-        progress.print(iter)
+        progress.printb(iter)
 
   return losses.avg
 
