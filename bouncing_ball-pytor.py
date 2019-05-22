@@ -273,7 +273,7 @@ class VideoNet(nn.Module):
     self.rnn_layers = nn.ModuleDict()
     self.convT = nn.ModuleDict()
     self.conv = nn.ModuleDict()
-    for i in [3, 6, 12, 24, 48]:
+    for i in [3, 6, 12, 24]:
       self.rnn_layers[str(i)] = Conv2DRNN(i, 3, 2*i)
       self.convT[str(i)] = nn.ConvTranspose2d(2*i, i, kernel_size=3, stride=2)
       self.conv[str(i)] = nn.Conv2d(3*i, i, kernel_size=KERNEL_SIZE, padding=PADDING)
@@ -288,6 +288,7 @@ class VideoNet(nn.Module):
     assert(batch_input.data.size()[4] == height)  # height = width
     assert(2 ** math.log(height, 2) == height)    # height is a power of 2
     
+    print("Running forward")
     for i in [3, 6, 12, 24]:
       _, rnn_outputs[i] = self.rnn_layers[str(i)].forward(layer)
 	  # rnn_outputs is [NBatch, NFrames, 2*i, H(layer), W(layer)]
