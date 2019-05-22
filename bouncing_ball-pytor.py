@@ -178,6 +178,7 @@ def drawBall(ball, vSizes, lightDirection, frame):
 
   
 def buildBouncingBallVideo(nBalls, vidSize, nFrames):
+  print("Building video with {} balls, size {}, {} frames".format(nBalls, vidSize, nFrames))
   minBallSize = 25
   maxBallSize = int(min(vidSize[0], vidSize[1]) / 3)
   balls = []
@@ -317,6 +318,7 @@ def train(epoch, video_size, model, optimizer_model, use_gpu,
 
   print("Craig Alpha: {:d},{:d},{:d}".format(batch_size, NUM_FRAMES, video_size))
   n_iters = int(samples_per_epoch / batch_size)
+  print(str(n_iters))
   for iter in range(n_iters):
     video_inputs = np.zeros([batch_size, NUM_FRAMES, 3, video_size, video_size])
     for i in range(batch_size):
@@ -327,6 +329,7 @@ def train(epoch, video_size, model, optimizer_model, use_gpu,
       video_inputs[i,...] = np.squeeze(np.stack(np.split(video_input, 3, axis=3), 1))
       
     inputs = Variable(torch.from_numpy(video_inputs).float())
+    print("Built inputs for iter {}".format(iter))
 
     loss = model(inputs)
     losses.update(loss, batch_size)
