@@ -457,7 +457,7 @@ def main():
     start_train_time = time.time()
     train(epoch, args.size, model, optimizer_model, use_gpu)
     train_time += round(time.time() - start_train_time)
-    print("Trained epoch {}".format(epoch)
+    print("Trained epoch {}".format(epoch))
         
     if (epoch+1) % 5 == 0 or (epoch+1) == args.max_epoch:
       print("==> Test: {}".format(epoch))
