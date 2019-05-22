@@ -428,6 +428,7 @@ def main():
   start_epoch = args.start_epoch
 
   optimizer_model = optim.Adam(model.parameters(), lr=args.lr)
+  print("Optimizer set up")
   
   if args.resume:
     print("Loading checkpoint from '{}'".format(args.resume))
@@ -436,7 +437,10 @@ def main():
     start_epoch = checkpoint['epoch']
 
   if use_gpu:
+    print("Using GPU")
     model = nn.DataParallel(model).cuda()
+  else:
+    print("Not using GPU")
 
   if args.evaluate:
     print("Evaluate only")
@@ -453,6 +457,7 @@ def main():
     start_train_time = time.time()
     train(epoch, args.size, model, optimizer_model, use_gpu)
     train_time += round(time.time() - start_train_time)
+    print("Trained epoch {}".format(epoch)
         
     if (epoch+1) % 5 == 0 or (epoch+1) == args.max_epoch:
       print("==> Test: {}".format(epoch))
