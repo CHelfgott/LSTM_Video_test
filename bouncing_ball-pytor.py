@@ -220,15 +220,16 @@ class Conv2DRNN(nn.Module):
   # input size is [batch_size, in_features, height, width]
   # The hidden layer is [batch_size, hidden_layers, height, width]
   # The output layer is [batch_size, out_features, height, width]
-  def __init__(self, in_features, hidden_layers, out_features):
+  def __init__(self, in_features, hidden_layers, out_features, device):
     super(Conv2DRNN, self).__init__()
     self.inf = in_features
     self.hidl = hidden_layers
     self.outf = out_features
+    self.device = device
     self.Gates = nn.Conv2d(in_features + hidden_layers,
                            hidden_layers + out_features,
-                           KERNEL_SIZE, padding=PADDING)
-    self.activation = nn.LeakyReLU(0.1)
+                           KERNEL_SIZE, padding=PADDING).cuda(device)
+    self.activation = nn.LeakyReLU(0.1).cuda(device)
     
   def step(self, input_, prev_hidden):
     # get batch and spatial sizes
@@ -252,6 +253,9 @@ class Conv2DRNN(nn.Module):
 	
   # Inputs here is [batch_size, num_inputs, input_features, height, width]	
   def forward(self, inputs, hidden=None):
+    inputs.cuda(self.device)
+    if hidden:
+      hidden.cuda(self.device)
     steps = inputs.data.size()[1]
     print("Conv2DRNN steps {}, #output filters {}".format(steps, self.outf))
     outputs = nn.ModuleDict()
@@ -270,22 +274,23 @@ class VideoNet(nn.Module):
   Generate a network for predicting video
   """
   
-  def __init__(self, **kwargs):
+  def __init__(self, device, **kwargs):
     super(VideoNet, self).__init__()
     
     self.rnn_layers = nn.ModuleDict()
     self.convT = nn.ModuleDict()
     self.conv = nn.ModuleDict()
     for i in [3, 6, 12, 24]:
-      self.rnn_layers[str(i)] = Conv2DRNN(i, 3, 2*i)
-      self.convT[str(i)] = nn.ConvTranspose2d(2*i, i, kernel_size=3, stride=2)
-      self.conv[str(i)] = nn.Conv2d(3*i, i, kernel_size=KERNEL_SIZE, padding=PADDING)
+      self.rnn_layers[str(i)] = Conv2DRNN(i, 3, 2*i, device)
+      self.convT[str(i)] = nn.ConvTranspose2d(2*i, i, kernel_size=3, stride=2).cuda(device)
+      self.conv[str(i)] = nn.Conv2d(3*i, i, kernel_size=KERNEL_SIZE, padding=PADDING).cuda(device)
       
-    self.maxpool = nn.MaxPool2d((2,2))
-    self.dropout = nn.Dropout2d(0.1)
+    self.maxpool = nn.MaxPool2d((2,2)).cuda(device)
+    self.dropout = nn.Dropout2d(0.1).cuda(device)
 
   def forward(self, batch_input):
     rnn_outputs = {}
+    batch_input.cuda(device)
     layer = batch_input  # layer is [NBatch, NFrames, 3, H, W], H = W = size
     height = batch_input.data.size()[3]
     assert(batch_input.data.size()[4] == height)  # height = width
@@ -415,6 +420,7 @@ def main():
   os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu_devices
   use_gpu = torch.cuda.is_available()
   if args.use_cpu: use_gpu = False
+  device = torch.device('cuda:0' if use_gpu else 'cpu')
 
   if not args.evaluate:
     print(osp.join(args.save_dir, 'log_train.txt'))
@@ -429,7 +435,7 @@ def main():
     print("Currently using CPU (GPU is highly recommended)")
 	
   print("Initializing model")
-  model = VideoNet()
+  model = VideoNet(device)
   print("Model size: {:.5f}M".format(sum(p.numel() for p in model.parameters())/1000000.0))	
   
   start_epoch = args.start_epoch
