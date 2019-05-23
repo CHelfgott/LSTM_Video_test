@@ -280,6 +280,7 @@ class VideoNet(nn.Module):
     self.rnn_layers = nn.ModuleDict()
     self.convT = nn.ModuleDict()
     self.conv = nn.ModuleDict()
+    self.device = device
     for i in [3, 6, 12, 24]:
       self.rnn_layers[str(i)] = Conv2DRNN(i, 3, 2*i, device)
       self.convT[str(i)] = nn.ConvTranspose2d(2*i, i, kernel_size=3, stride=2).cuda(device)
@@ -290,7 +291,7 @@ class VideoNet(nn.Module):
 
   def forward(self, batch_input):
     rnn_outputs = {}
-    batch_input.cuda(device)
+    batch_input.cuda(self.device)
     layer = batch_input  # layer is [NBatch, NFrames, 3, H, W], H = W = size
     height = batch_input.data.size()[3]
     assert(batch_input.data.size()[4] == height)  # height = width
@@ -298,7 +299,7 @@ class VideoNet(nn.Module):
     
     print("Running forward")
     for i in [3, 6, 12, 24]:
-      _, rnn_outputs[i] = self.rnn_layers[str(i)].forward(layer)
+      _, rnn_outputs[i] = self.rnn_layers[str(i)].forward(layer).cuda(self.device)
 	  # rnn_outputs is [NBatch, NFrames, 2*i, H(layer), W(layer)]
       layer = torch.stack([self.dropout(self.maxpool(x)) for x in torch.unbind(rnn_outputs[i], 0)], 0)
 	  # layer is [NBatch, NFrames, 2*i, H/2, W/2]
