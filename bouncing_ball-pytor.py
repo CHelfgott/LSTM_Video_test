@@ -233,6 +233,8 @@ class Conv2DRNN(nn.Module):
     
   def step(self, input_, prev_hidden):
     # get batch and spatial sizes
+    input_.cuda(self.device)
+    prev_hidden.cuda(self.device)
     batch_size = input_.data.size()[0]
     spatial_size = input_.data.size()[2:]
     
@@ -263,7 +265,7 @@ class Conv2DRNN(nn.Module):
 #                                   list(inputs.data.size()[3:])))
     for i in range(steps):
       print(str(i))
-      input = inputs[:,i,...].squeeze().cuda(self.device)
+      input = inputs[:,i,...].squeeze()
       hidden, outputs[i] = self.step(input, hidden)
       #outputs[:,i,...] = output
     return hidden, torch.stack(outputs.unsqueeze(1), 1)
