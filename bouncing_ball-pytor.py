@@ -234,7 +234,8 @@ class Conv2DRNN(nn.Module):
   def step(self, input_, prev_hidden):
     # get batch and spatial sizes
     input_.cuda(self.device)
-    prev_hidden.cuda(self.device)
+    if prev_hidden:
+      prev_hidden.cuda(self.device)
     batch_size = input_.data.size()[0]
     spatial_size = input_.data.size()[2:]
     
