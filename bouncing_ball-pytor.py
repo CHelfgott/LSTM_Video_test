@@ -253,9 +253,11 @@ class Conv2DRNN(nn.Module):
   # Inputs here is [batch_size, num_inputs, input_features, height, width]	
   def forward(self, inputs, hidden=None):
     steps = inputs.data.size()[1]
+    print("Conv2DRNN steps: {}".format(steps))
     outputs = Variable(torch.zeros(list(inputs.data.size()[:2]) + [self.outf] + 
                                    list(inputs.data.size()[3:])))
     for i in range(steps):
+      print(str(i))
       input = inputs[:,i,...].squeeze()
       hidden, output = self.step(input, hidden)
       outputs[:,i,...] = output
