@@ -248,7 +248,7 @@ class Conv2DRNN(nn.Module):
     
     hidden = gates[:, 0:self.hidl, :,:]
     output_layer = gates[:, self.hidl:, :,:]
-    
+
     return hidden, output_layer
 	
   # Inputs here is [batch_size, num_inputs, input_features, height, width]	
@@ -263,7 +263,7 @@ class Conv2DRNN(nn.Module):
 #                                   list(inputs.data.size()[3:])))
     for i in range(steps):
       print(str(i))
-      input = inputs[:,i,...].squeeze()
+      input = inputs[:,i,...].squeeze().cuda(self.device)
       hidden, outputs[i] = self.step(input, hidden)
       #outputs[:,i,...] = output
     return hidden, torch.stack(outputs.unsqueeze(1), 1)
