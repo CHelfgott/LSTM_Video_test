@@ -255,8 +255,8 @@ class Conv2DRNN(nn.Module):
     steps = inputs.data.size()[1]
     print("Conv2DRNN steps {}, #output filters {}".format(steps, self.outf))
     outputs = nn.ModuleDict()
-    outputs = Variable(torch.zeros(list(inputs.data.size()[:2]) + [self.outf] + 
-                                   list(inputs.data.size()[3:])))
+#    outputs = Variable(torch.zeros(list(inputs.data.size()[:2]) + [self.outf] + 
+#                                   list(inputs.data.size()[3:])))
     for i in range(steps):
       print(str(i))
       input = inputs[:,i,...].squeeze()
