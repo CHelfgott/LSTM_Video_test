@@ -274,7 +274,7 @@ class Conv2DRNN(nn.Module):
       input = inputs[:,i,...].squeeze()
       print("Stepping: {}".format(input.device))
       hidden, output = self.step(input, hidden)
-      print("Stepped: {}, {}".format(hidden.device, outputs[i].device))
+      print("Stepped: {}, {}".format(hidden.device, output.device))
       outputs.append(output)
       #outputs[:,i,...] = output
     return hidden, torch.stack(outputs, 1)
