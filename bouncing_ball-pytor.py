@@ -305,7 +305,7 @@ class VideoNet(nn.Module):
     
     print("Running forward")
     for i in [3, 6, 12, 24]:
-      _, rnn_outputs[i] = self.rnn_layers[str(i)].forward(layer).cuda(self.device)
+      _, rnn_outputs[i] = self.rnn_layers[str(i)].forward(layer)
 	  # rnn_outputs is [NBatch, NFrames, 2*i, H(layer), W(layer)]
       layer = torch.stack([self.dropout(self.maxpool(x)) for x in torch.unbind(rnn_outputs[i], 0)], 0)
 	  # layer is [NBatch, NFrames, 2*i, H/2, W/2]
