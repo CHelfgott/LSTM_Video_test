@@ -261,7 +261,7 @@ class Conv2DRNN(nn.Module):
       hidden.cuda(self.device)
     steps = inputs.data.size()[1]
     print("Conv2DRNN steps {}, #output filters {}".format(steps, self.outf))
-    outputs = nn.ModuleDict().cuda(self.device)
+    outputs = nn.ModuleDict()
 #    outputs = Variable(torch.zeros(list(inputs.data.size()[:2]) + [self.outf] + 
 #                                   list(inputs.data.size()[3:])))
     for i in range(steps):
