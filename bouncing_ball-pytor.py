@@ -311,7 +311,7 @@ class VideoNet(nn.Module):
     for i in [24, 12, 6, 3]:
       layer = torch.stack([self.dropout(self.convT[str(i)].forward(x)) for x in torch.unbind(layer, 0)], 0)
       # layer is [NBatch, NFrames, i, 2*H(layer), 2*W(layer)]
-      layer = torch.cat(rnn_outputs[i], layer, dim=1)
+      layer = torch.cat([rnn_outputs[i], layer], dim=1)
       # layer is [NBatch, NFrames, 3*i, 2*H(layer), 2*W(layer)]
       layer = torch.stack([self.conv[str(i)].forward(x) 
                            for x in torch.unbind(layer, 0)], 0)
