@@ -233,7 +233,6 @@ class Conv2DRNN(nn.Module):
     
   def step(self, input_, prev_hidden):
     # get batch and spatial sizes
-    print("Z: {}".format(input_.device))
     input_.cuda(self.device)
     print("A: {}".format(input_.device))
     
@@ -250,11 +249,14 @@ class Conv2DRNN(nn.Module):
     # data size is [batch, channels, height, width]
     print("B: {}, {}".format(input_.device, prev_hidden.device))
     stacked_inputs = torch.cat((input_, prev_hidden), 1)
+    print("C: {}".format(stacked_inputs.device))
     gates = self.Gates(stacked_inputs)  
     gates = self.activation(gates)
+    print("D: {}".format(gates.device))
     
     hidden = gates[:, 0:self.hidl, :,:]
     output_layer = gates[:, self.hidl:, :,:]
+    print("E: {}, {}".format(hidden.device, output_layer.device))
 
     return hidden, output_layer
 	
