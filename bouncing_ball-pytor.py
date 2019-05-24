@@ -236,8 +236,6 @@ class Conv2DRNN(nn.Module):
     input_.cuda(self.device)
     print("A: {}".format(input_.device))
     
-    if prev_hidden is not None:
-      prev_hidden.cuda(self.device)
     batch_size = input_.data.size()[0]
     spatial_size = input_.data.size()[2:]
     
@@ -245,25 +243,23 @@ class Conv2DRNN(nn.Module):
     if prev_hidden is None:
       state_size = [batch_size, self.hidl] + list(spatial_size)
       prev_hidden = (Variable(torch.zeros(state_size))).cuda(self.device)
+    else:
+      prev_hidden.cuda(self.device)    
     
     # data size is [batch, channels, height, width]
-    print("B: {}, {}".format(input_.device, prev_hidden.device))
     stacked_inputs = torch.cat((input_, prev_hidden), 1)
-    print("C: {}".format(stacked_inputs.device))
     gates = self.Gates(stacked_inputs)  
     gates = self.activation(gates)
-    print("D: {}".format(gates.device))
     
     hidden = gates[:, 0:self.hidl, :,:]
     output_layer = gates[:, self.hidl:, :,:]
-    print("E: {}, {}".format(hidden.device, output_layer.device))
 
     return hidden, output_layer
 	
   # Inputs here is [batch_size, num_inputs, input_features, height, width]	
   def forward(self, inputs, hidden=None):
     inputs.cuda(self.device)
-    if hidden is not None:
+    if not hidden is None:
       hidden.cuda(self.device)
     steps = inputs.data.size()[1]
     print("Conv2DRNN steps {}, #output filters {}".format(steps, self.outf))
