@@ -242,10 +242,10 @@ class Conv2DRNN(nn.Module):
     # generate empty prev_state, if None is provided
     if prev_hidden is None:
       state_size = [batch_size, self.hidl] + list(spatial_size)
-      prev_hidden = Variable(torch.zeros(state_size))
+      prev_hidden = Variable(torch.zeros(state_size)).cuda(self.device)
     
     # data size is [batch, channel, height, width]
-    stacked_inputs = torch.cat((input_, prev_hidden), 1).cuda(self.device)
+    stacked_inputs = torch.cat((input_, prev_hidden), 1).to(self.device)
     gates = self.Gates(stacked_inputs)  
     gates = self.activation(gates)
     
