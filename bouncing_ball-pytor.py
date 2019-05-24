@@ -267,17 +267,17 @@ class Conv2DRNN(nn.Module):
       hidden.cuda(self.device)
     steps = inputs.data.size()[1]
     print("Conv2DRNN steps {}, #output filters {}".format(steps, self.outf))
-    outputs = nn.ModuleDict()
-#    outputs = Variable(torch.zeros(list(inputs.data.size()[:2]) + [self.outf] + 
-#                                   list(inputs.data.size()[3:])))
+    outputs = (Variable(torch.zeros(list(inputs.data.size()[:2]) + [self.outf] + 
+                                    list(inputs.data.size()[3:])))).cuda(self.device)
+
     for i in range(steps):
       print(str(i))
       input = inputs[:,i,...].squeeze()
       print("Stepping: {}".format(input.device))
-      hidden, outputs[i] = self.step(input, hidden)
+      hidden, output = self.step(input, hidden)
       print("Stepped: {}, {}".format(hidden.device, outputs[i].device))
-      #outputs[:,i,...] = output
-    return hidden, torch.stack(outputs.unsqueeze(1), 1)
+      outputs[:,i,...] = output
+    return hidden, outputs
     
 
 class VideoNet(nn.Module):
