@@ -285,7 +285,8 @@ class VideoNet(nn.Module):
     self.device = device
     for i in [3, 6, 12, 24]:
       self.rnn_layers[str(i)] = Conv2DRNN(i, 3, 2*i, device)
-      self.convT[str(i)] = nn.ConvTranspose2d(2*i, i, kernel_size=3, stride=2).cuda(device)
+      self.convT[str(i)] = nn.ConvTranspose2d(2*i, i, kernel_size=3, stride=2,
+                                              padding=PADDING, output_padding=1).cuda(device)
       self.conv[str(i)] = nn.Conv2d(3*i, i, kernel_size=KERNEL_SIZE, padding=PADDING).cuda(device)
       
     self.maxpool = nn.MaxPool2d((2,2)).cuda(device)
@@ -310,7 +311,7 @@ class VideoNet(nn.Module):
       layer = torch.stack([self.dropout(self.convT[str(i)].forward(x)) for x in torch.unbind(layer, 0)], 0)
       # layer is [NBatch, NFrames, i, 2*H(layer), 2*W(layer)]
       print("Stacking at step {}: RNN outputs {}, layer {}".format(i, rnn_outputs[i].data.size(), layer.data.size()))
-      layer = torch.cat([rnn_outputs[i], layer], dim=1)
+      layer = torch.cat([rnn_outputs[i], layer], dim=2)
       # layer is [NBatch, NFrames, 3*i, 2*H(layer), 2*W(layer)]
       layer = torch.stack([self.conv[str(i)].forward(x) 
                            for x in torch.unbind(layer, 0)], 0)
