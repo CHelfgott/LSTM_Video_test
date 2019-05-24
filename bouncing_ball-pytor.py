@@ -234,6 +234,8 @@ class Conv2DRNN(nn.Module):
   def step(self, input_, prev_hidden):
     # get batch and spatial sizes
     input_.cuda(self.device)
+    #print("A: {}".format(input_.device))
+    
     if prev_hidden:
       prev_hidden.cuda(self.device)
     batch_size = input_.data.size()[0]
@@ -242,7 +244,7 @@ class Conv2DRNN(nn.Module):
     # generate empty prev_state, if None is provided
     if prev_hidden is None:
       state_size = [batch_size, self.hidl] + list(spatial_size)
-      prev_hidden = Variable(torch.zeros(state_size))
+      prev_hidden = Variable(torch.zeros(state_size)).cuda(device)
     
     # data size is [batch, channels, height, width]
     stacked_inputs = torch.cat((input_, prev_hidden), 1)
