@@ -265,11 +265,9 @@ class Conv2DRNN(nn.Module):
     outputs = []
 
     for i in range(steps):
-      print(str(i))
       input = inputs[:,i,...].squeeze()
       hidden, output = self.step(input, hidden)
       outputs.append(output)
-      #outputs[:,i,...] = output
     return hidden, torch.stack(outputs, 1)
     
 
@@ -311,6 +309,7 @@ class VideoNet(nn.Module):
     for i in [24, 12, 6, 3]:
       layer = torch.stack([self.dropout(self.convT[str(i)].forward(x)) for x in torch.unbind(layer, 0)], 0)
       # layer is [NBatch, NFrames, i, 2*H(layer), 2*W(layer)]
+      print("Stacking at step {}: RNN outputs {}, layer {}".format(i, rnn_outputs[i].data.size(), layer.data.size()))
       layer = torch.cat([rnn_outputs[i], layer], dim=1)
       # layer is [NBatch, NFrames, 3*i, 2*H(layer), 2*W(layer)]
       layer = torch.stack([self.conv[str(i)].forward(x) 
