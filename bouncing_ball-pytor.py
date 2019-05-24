@@ -244,7 +244,7 @@ class Conv2DRNN(nn.Module):
     # generate empty prev_state, if None is provided
     if prev_hidden is None:
       state_size = [batch_size, self.hidl] + list(spatial_size)
-      prev_hidden = Variable(torch.zeros(state_size))
+      prev_hidden = (Variable(torch.zeros(state_size))).cuda(self.device)
     
     # data size is [batch, channels, height, width]
     print("B: {}, {}".format(input_.device, prev_hidden.device))
