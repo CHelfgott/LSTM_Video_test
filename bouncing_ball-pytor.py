@@ -222,7 +222,6 @@ class Conv2DRNN(nn.Module):
   # The output layer is [batch_size, out_features, height, width]
   def __init__(self, in_features, hidden_layers, out_features, device):
     super(Conv2DRNN, self).__init__()
-    super(Conv2DRNN, self).cuda(device)
     self.inf = in_features
     self.hidl = hidden_layers
     self.outf = out_features
