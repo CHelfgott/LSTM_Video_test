@@ -231,12 +231,12 @@ class Conv2DRNN(nn.Module):
                            KERNEL_SIZE, padding=PADDING).cuda(device)
     self.activation = nn.LeakyReLU(0.1).cuda(device)
     
-  def step(self, input_, prev_hidden):
+  def step(self, input_, prev_hidden=None):
     # get batch and spatial sizes
     input_.cuda(self.device)
     print("A: {}".format(input_.device))
     
-    if prev_hidden:
+    if prev_hidden is not None:
       prev_hidden.cuda(self.device)
     batch_size = input_.data.size()[0]
     spatial_size = input_.data.size()[2:]
@@ -263,7 +263,7 @@ class Conv2DRNN(nn.Module):
   # Inputs here is [batch_size, num_inputs, input_features, height, width]	
   def forward(self, inputs, hidden=None):
     inputs.cuda(self.device)
-    if hidden:
+    if hidden is not None:
       hidden.cuda(self.device)
     steps = inputs.data.size()[1]
     print("Conv2DRNN steps {}, #output filters {}".format(steps, self.outf))
