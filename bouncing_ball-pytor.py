@@ -325,7 +325,7 @@ class VideoNet(nn.Module):
 	
   
 def train(epoch, video_size, model, optimizer_model, use_gpu,
-          samples_per_epoch = 1000, batch_size=25):
+          samples_per_epoch = 1000, batch_size=10):
   losses = AverageMeter()
   batch_time = AverageMeter()
   end = time.time()
