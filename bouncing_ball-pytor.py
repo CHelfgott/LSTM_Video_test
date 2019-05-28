@@ -493,8 +493,8 @@ def main():
     print("==> Best Rank-1 {:.1%}, achieved at epoch {}".format(best_rank1, best_epoch))
 
     elapsed = round(time.time() - start_time)
-    elapsed = str(datetime.timedelta(seconds=elapsed))
-    train_time = str(datetime.timedelta(seconds=train_time))
+    elapsed = datetime.timedelta(seconds=elapsed)
+    train_time = datetime.timedelta(seconds=train_time)
     print("Finished. Total elapsed time (h:m:s): {}. Training time (h:m:s): {}.".format(elapsed, train_time))
     
     
