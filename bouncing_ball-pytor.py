@@ -349,7 +349,7 @@ def train(epoch, video_size, model, optimizer_model, use_gpu,
     losses.update(loss, batch_size)
 
     optimizer_model.zero_grad()
-    loss.backward()
+    loss.sum().backward()
     optimizer_model.step()
 
     #losses[epoch] += loss.data[0]
