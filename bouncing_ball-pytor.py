@@ -330,8 +330,8 @@ class VideoNet(nn.Module):
   
 def train(epoch, video_size, model, optimizer_model, use_gpu,
           samples_per_epoch = 1000, batch_size=10):
-  losses = AverageMeter()
-  batch_time = AverageMeter()
+  losses = AverageMeter('Loss', ':.4e')
+  batch_time = AverageMeter('Time', ':6.3f')
   end = time.time()
 
   print("Craig Alpha: {:d},{:d},{:d}".format(batch_size, NUM_FRAMES, video_size))
@@ -368,8 +368,8 @@ def test(model, video_size, use_gpu):
   num_tests = 100
   batch_size = 25
   
-  batch_time = AverageMeter()
-  losses = AverageMeter()
+  batch_time = AverageMeter('Time', ':6.3f')
+  losses = AverageMeter('Loss', ':.4e')
   progress = ProgressMeter(num_tests, 'Test: ', batch_time, losses)
 
   model.eval()
