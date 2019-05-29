@@ -494,7 +494,6 @@ def main():
 
     elapsed = round(time.time() - start_time)
     elapsed = datetime.timedelta(seconds=elapsed)
-    train_time = float(datetime.timedelta(seconds=train_time))
     print("Finished. Total elapsed time (h:m:s): {}. Training time (h:m:s): {}.".format(elapsed, datetime.timedelta(seconds=train_time)))
     
     
