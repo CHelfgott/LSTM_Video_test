@@ -29,7 +29,9 @@ def str2bool(v):
 
 class AverageMeter(object):
   """Computes and stores the average and current value"""
-  def __init__(self):
+  def __init__(self, name, fmt=':f'):
+    self.name = name
+    self.fmt = fmt
     self.reset()
 
   def reset(self):
@@ -43,7 +45,11 @@ class AverageMeter(object):
     self.sum += val * n
     self.count += n
     self.avg = self.sum / self.count if self.count != 0 else 0
-    
+
+  def __str__(self):
+    fmtstr = '{name} {val' + self.fmt + '} ({avg' + self.fmt + '})'
+    return fmtstr.format(**self.__dict__)    
+
     
 class ProgressMeter(object):
   def __init__(self, num_batches, prefix="", *meters):
@@ -362,8 +368,8 @@ def test(model, video_size, use_gpu):
   num_tests = 100
   batch_size = 25
   
-  batch_time = AverageMeter('Time', ':6.3f')
-  losses = AverageMeter('Loss', ':.4e')
+  batch_time = AverageMeter()
+  losses = AverageMeter()
   progress = ProgressMeter(num_tests, 'Test: ', batch_time, losses)
 
   model.eval()
