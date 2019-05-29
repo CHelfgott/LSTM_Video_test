@@ -29,7 +29,7 @@ def str2bool(v):
 
 class AverageMeter(object):
   """Computes and stores the average and current value"""
-  def __init__(self, name, fmt=':f'):
+  def __init__(self, name, fmt=':.3f'):
     self.name = name
     self.fmt = fmt
     self.reset()
@@ -330,7 +330,7 @@ class VideoNet(nn.Module):
   
 def train(epoch, video_size, model, optimizer_model, use_gpu,
           samples_per_epoch = 1000, batch_size=10):
-  losses = AverageMeter('Loss', ':.4f')
+  losses = AverageMeter('Loss', ':6.4f')
   batch_time = AverageMeter('Time', ':6.3f')
   end = time.time()
 
@@ -369,7 +369,7 @@ def test(model, video_size, use_gpu):
   batch_size = 15
   
   batch_time = AverageMeter('Time', ':6.3f')
-  losses = AverageMeter('Loss', ':.4f')
+  losses = AverageMeter('Loss', ':6.4f')
   progress = ProgressMeter(num_tests, 'Test: ', batch_time, losses)
 
   model.eval()
