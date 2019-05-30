@@ -389,6 +389,7 @@ def test(model, video_size, use_gpu):
 
       loss = model(inputs)
       losses.update(loss, batch_size)
+      print('L0: {}'.format(loss))
       print('L {:d}: {:6.4f}'.format(iter, loss))
       
       # measure elapsed time
