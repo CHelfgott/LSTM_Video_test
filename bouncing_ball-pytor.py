@@ -375,6 +375,7 @@ def test(model, video_size, use_gpu):
   model.eval()
   with torch.no_grad():
     end = time.time()
+    print('T {:6.3f}'.format(end))
     for iter in range(num_tests):
       video_inputs = np.zeros([batch_size, NUM_FRAMES, 3, video_size, video_size])
       for i in range(batch_size):
@@ -388,6 +389,7 @@ def test(model, video_size, use_gpu):
 
       loss = model(inputs)
       losses.update(loss, batch_size)
+      print('L {:d}: {:6.4f}'.format(iter, loss))
       
       # measure elapsed time
       batch_time.update(time.time() - end)
