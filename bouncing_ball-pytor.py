@@ -400,9 +400,10 @@ def test(model, video_size, use_gpu, save_output=False):
       if iter % 20 == 0:
         progress.printb(iter)
         if iter == 0 and save_output:
-          diffs = np.squeeze(inputs[-1,...].device('cpu') - outputs[-1,...].device('cpu'))
-          video_output = np.squeeze(np.stack(np.split(diffs, axis=1), 4))
-          vidio.vwrite('output_diff.mp4', video_output)
+          video_input = np.squeeze(np.stack(np.split(inputs[-1,...], axis=2), 5))
+          vidio.vwrite('input_video.mp4', video_input)
+          video_output = np.squeeze(np.stack(np.split(outputs[-1,...], axis=2), 5))
+          vidio.vwrite('output_video.mp4', video_output)
           
   return losses.avg
 
