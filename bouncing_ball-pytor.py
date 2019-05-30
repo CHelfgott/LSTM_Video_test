@@ -366,7 +366,6 @@ def train(epoch, video_size, model, optimizer_model, use_gpu,
     
     
 def test(model, video_size, use_gpu, save_output=False):
-  model.train(False)
   num_tests = 100
   batch_size = 15
   
@@ -374,6 +373,7 @@ def test(model, video_size, use_gpu, save_output=False):
   losses = AverageMeter('Loss', ':6.4f')
   progress = ProgressMeter(num_tests, 'Test: ', batch_time, losses)
 
+  loss_fn = nn.MSELoss(reduction='mean')
   model.eval()
   with torch.no_grad():
     end = time.time()
@@ -390,7 +390,7 @@ def test(model, video_size, use_gpu, save_output=False):
       inputs = Variable(torch.from_numpy(video_inputs).float())
 
       outputs = model(inputs)
-      loss = nn.MSELoss(inputs, outputs, reduction='mean')
+      loss = loss_fn(inputs, outputs)
       losses.update(loss, batch_size)
       print('L0: {}'.format(loss))
       print('L {:d}: {:6.4f}'.format(iter, loss))
@@ -402,7 +402,8 @@ def test(model, video_size, use_gpu, save_output=False):
       if iter % 20 == 0:
         progress.printb(iter)
         if iter == 0 and save_output:
-          video_output = np.squeeze(np.stack(np.split(outputs[-1,...], axis=2), 5))
+          diffs = np.squeeze(inputs[-1,...] - outputs[-1,...])
+          video_output = np.squeeze(np.stack(np.split(diffs, axis=1), 4))
           vidio.vwrite('output_diff.mp4', video_output)
           
   return losses.avg
