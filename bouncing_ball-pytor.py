@@ -401,6 +401,7 @@ def test(model, video_size, use_gpu, save_output=False):
         progress.printb(iter)
         if iter == 0 and save_output:
           diffs = np.squeeze(((outputs.data).cpu().numpy())[-1,...] - video_inputs[-1,...])
+          print('DS: {}'.format(diffs.shape()))
           video_output = np.squeeze(np.stack(np.split(np.abs(diffs), axis=1), 4))
           vidio.vwrite('output_diff.mp4', video_output)
           
