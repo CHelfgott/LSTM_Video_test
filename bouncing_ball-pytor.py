@@ -321,8 +321,8 @@ class VideoNet(nn.Module):
                            for x in torch.unbind(layer, 0)], 0)
       # layer is [NBatch, NFrames, i, 2*H(layer), 2*W(layer)]
 	
-    if not self.training:
-      return layer
+#    if not self.training:
+#      return layer
     
     loss = nn.MSELoss(reduce=False)
     return loss(batch_input, layer)
