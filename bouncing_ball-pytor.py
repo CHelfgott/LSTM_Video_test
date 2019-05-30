@@ -329,7 +329,7 @@ class VideoNet(nn.Module):
 	
   
 def train(epoch, video_size, model, optimizer_model, use_gpu,
-          samples_per_epoch = 1000, batch_size=10):
+          samples_per_epoch = 100, batch_size=10):
   losses = AverageMeter('Loss', ':6.4f')
   batch_time = AverageMeter('Time', ':6.3f')
   end = time.time()
@@ -400,8 +400,8 @@ def test(model, video_size, use_gpu, save_output=False):
       if iter % 20 == 0:
         progress.printb(iter)
         if iter == 0 and save_output:
-          diffs = np.abs(np.squeeze(((outputs.data).cpu().numpy())[-1,...] - video_inputs[-1,...]))
-          video_output = np.squeeze(np.stack(np.split(diffs, axis=1), 4))
+          diffs = np.squeeze(((outputs.data).cpu().numpy())[-1,...] - video_inputs[-1,...])
+          video_output = np.squeeze(np.stack(np.split(np.abs(diffs), axis=1), 4))
           vidio.vwrite('output_diff.mp4', video_output)
           
   return losses.avg
