@@ -362,7 +362,7 @@ def train(epoch, video_size, model, optimizer_model, use_gpu,
     end = time.time()
 
   if epoch > 0:
-    print(epoch, loss)
+    print(epoch, loss.item())
     
     
 def test(model, video_size, use_gpu, save_output=False):
