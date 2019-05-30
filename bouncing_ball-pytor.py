@@ -488,7 +488,7 @@ def main():
         
     if (epoch+1) % 1 == 0 or (epoch+1) == args.max_epoch:
       print("==> Test: {}".format(epoch))
-      rank1 = test(model, args.size, use_gpu, True)
+      rank1 = test(model, args.size, use_gpu, False)
       is_best = rank1 > best_rank1
       if is_best:
         best_rank1 = rank1
