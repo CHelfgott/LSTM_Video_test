@@ -400,6 +400,8 @@ def test(model, video_size, use_gpu, save_output=False):
       if iter % 20 == 0:
         progress.printb(iter)
         if iter == 0 and save_output:
+          print('OS: {}'.format((outputs.data).cpu().shape()))
+          print('IS: {}'.format(video_inputs.shape()))
           diffs = np.squeeze(((outputs.data).cpu().numpy())[-1,...] - video_inputs[-1,...])
           print('DS: {}'.format(diffs.shape()))
           video_output = np.squeeze(np.stack(np.split(np.abs(diffs), axis=1), 4))
