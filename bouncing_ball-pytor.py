@@ -321,10 +321,10 @@ class VideoNet(nn.Module):
                            for x in torch.unbind(layer, 0)], 0)
       # layer is [NBatch, NFrames, i, 2*H(layer), 2*W(layer)]
 	
-#    if not self.training:
-#      return layer
+    if not self.training:
+      return layer
     
-    loss = nn.MSELoss(reduce=False)
+    loss = nn.MSELoss(reduction='mean')
     return loss(batch_input, layer)
 	
   
@@ -333,6 +333,7 @@ def train(epoch, video_size, model, optimizer_model, use_gpu,
   losses = AverageMeter('Loss', ':6.4f')
   batch_time = AverageMeter('Time', ':6.3f')
   end = time.time()
+  model.train()
 
   print("Craig Alpha: {:d},{:d},{:d}".format(batch_size, NUM_FRAMES, video_size))
   n_iters = int(samples_per_epoch / batch_size)
@@ -364,7 +365,8 @@ def train(epoch, video_size, model, optimizer_model, use_gpu,
     print(epoch, loss.data[0])
     
     
-def test(model, video_size, use_gpu):
+def test(model, video_size, use_gpu, save_output=False):
+  model.train(False)
   num_tests = 100
   batch_size = 15
   
@@ -387,7 +389,8 @@ def test(model, video_size, use_gpu):
         
       inputs = Variable(torch.from_numpy(video_inputs).float())
 
-      loss = model(inputs)
+      outputs = model(inputs)
+      loss = nn.MSELoss(inputs, outputs, reduction='mean')
       losses.update(loss, batch_size)
       print('L0: {}'.format(loss))
       print('L {:d}: {:6.4f}'.format(iter, loss))
@@ -398,7 +401,10 @@ def test(model, video_size, use_gpu):
       
       if iter % 20 == 0:
         progress.printb(iter)
-
+        if iter == 0 and save_output:
+          video_output = np.squeeze(np.stack(np.split(outputs[-1,...], axis=2), 5)
+          vidio.vwrite('output_diff.mp4', video_output)
+          
   return losses.avg
 
   
@@ -486,7 +492,7 @@ def main():
         
     if (epoch+1) % 1 == 0 or (epoch+1) == args.max_epoch:
       print("==> Test: {}".format(epoch))
-      rank1 = test(model, args.size, use_gpu)
+      rank1 = test(model, args.size, use_gpu, True)
       is_best = rank1 > best_rank1
       if is_best:
         best_rank1 = rank1
