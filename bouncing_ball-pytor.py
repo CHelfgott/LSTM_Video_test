@@ -329,7 +329,7 @@ class VideoNet(nn.Module):
 	
   
 def train(epoch, video_size, model, optimizer_model, use_gpu,
-          samples_per_epoch = 100, batch_size=10):
+          samples_per_epoch = 1000, batch_size=10):
   losses = AverageMeter('Loss', ':6.4f')
   batch_time = AverageMeter('Time', ':6.3f')
   end = time.time()
@@ -486,7 +486,7 @@ def main():
     train_time += time.time() - start_train_time
     print("Trained epoch {}".format(epoch))
         
-    if (epoch+1) % 1 == 0 or (epoch+1) == args.max_epoch:
+    if (epoch+1) % 5 == 0 or (epoch+1) == args.max_epoch:
       print("==> Test: {}".format(epoch))
       rank1 = test(model, args.size, use_gpu, False)
       is_best = rank1 > best_rank1
