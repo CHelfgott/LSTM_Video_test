@@ -376,7 +376,6 @@ def test(model, video_size, use_gpu, save_output=False):
   model.eval()
   with torch.no_grad():
     end = time.time()
-    print('T {:6.3f}'.format(end))
     for iter in range(num_tests):
       video_inputs = np.zeros([batch_size, NUM_FRAMES, 3, video_size, video_size])
       for i in range(batch_size):
@@ -390,8 +389,6 @@ def test(model, video_size, use_gpu, save_output=False):
 
       loss, outputs = model(inputs)
       losses.update(loss, batch_size)
-      print('L0: {}'.format(loss))
-      print('L {:d}: {:6.4f}'.format(iter, loss))
       
       # measure elapsed time
       batch_time.update(time.time() - end)
@@ -400,11 +397,8 @@ def test(model, video_size, use_gpu, save_output=False):
       if iter % 20 == 0:
         progress.printb(iter)
         if iter == 0 and save_output:
-          print('OS: {}'.format((outputs.data).cpu().shape))
-          print('IS: {}'.format(video_inputs.shape))
           diffs = np.squeeze(((outputs.data).cpu().numpy())[-1,...] - video_inputs[-1,...])
-          print('DS: {}'.format(diffs.shape))
-          video_output = np.squeeze(np.stack(np.split(np.abs(diffs), axis=1), 4))
+          video_output = np.squeeze(np.stack(np.split(np.abs(diffs), 3, axis=1), 4))
           vidio.vwrite('output_diff.mp4', video_output)
           
   return losses.avg
