@@ -298,6 +298,7 @@ class VideoNet(nn.Module):
     self.dropout = nn.Dropout2d(0.1).cuda(device)
 
   def forward(self, batch_input):
+    loss = nn.MSELoss(reduction='mean')
     rnn_outputs = {}
     batch_input.cuda(self.device)
     layer = batch_input  # layer is [NBatch, NFrames, 3, H, W], H = W = size
@@ -322,9 +323,8 @@ class VideoNet(nn.Module):
       # layer is [NBatch, NFrames, i, 2*H(layer), 2*W(layer)]
 	
     if not self.training:
-      return layer
+      return loss(batch_input, layer), layer
     
-    loss = nn.MSELoss(reduction='mean')
     return loss(batch_input, layer)
 	
   
@@ -373,7 +373,6 @@ def test(model, video_size, use_gpu, save_output=False):
   losses = AverageMeter('Loss', ':6.4f')
   progress = ProgressMeter(num_tests, 'Test: ', batch_time, losses)
 
-  loss_fn = nn.MSELoss(reduction='mean')
   model.eval()
   with torch.no_grad():
     end = time.time()
@@ -389,8 +388,7 @@ def test(model, video_size, use_gpu, save_output=False):
         
       inputs = Variable(torch.from_numpy(video_inputs).float())
 
-      outputs = model(inputs)
-      loss = loss_fn(inputs, outputs)
+      loss, outputs = model(inputs)
       losses.update(loss, batch_size)
       print('L0: {}'.format(loss))
       print('L {:d}: {:6.4f}'.format(iter, loss))
