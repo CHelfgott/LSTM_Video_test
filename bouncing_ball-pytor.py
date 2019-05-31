@@ -498,8 +498,10 @@ def main():
         state_dict = model.module.state_dict()
       else:
         state_dict = model.state_dict()
-      torch.save({ 'state_dict': state_dict, 'rank1': rank1, 'epoch': epoch, }, is_best, 
-                 osp.join(args.save_dir, 'checkpoint_ep' + str(epoch+1) + '.pth.tar'))
+      save_path = osp.join(args.save_dir, 'checkpoint_ep{:d}.pth.tar'.format(epoch+1))
+      torch.save({ 'state_dict': state_dict, 'rank1': rank1, 'epoch': epoch }, save_path)
+      if is_best:
+        shutil.copy(save_path, osp.join(args.save_dir, 'model-best.pth.tar'))
 
     print("==> Best Rank-1 {:.1%}, achieved at epoch {}".format(best_rank1, best_epoch))
 
