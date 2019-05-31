@@ -14,6 +14,7 @@ import torch, torch.nn as nn, torch.optim as optim
 from torch.autograd import Variable
 import torch.backends.cudnn as cudnn
 import argparse
+import shutil
 
 NUM_DIMS = 3
 
@@ -420,7 +421,7 @@ def main():
                       help="initial learning rate")                    
   parser.add_argument('--resume', type=str, default='', metavar='PATH')
   parser.add_argument('--evaluate', action='store_true', help="evaluation only")
-  parser.add_argument('--save-dir', type=str, default='log')
+  parser.add_argument('--save-dir', type=str, default='logs')
   parser.add_argument('--use-cpu', action='store_true', help="use cpu")
   parser.add_argument('--gpu-devices', default='0', type=str,
                       help='gpu device ids for CUDA_VISIBLE_DEVICES')
