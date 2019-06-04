@@ -9,6 +9,8 @@ import cv2, numpy as np, os, random, math
 import os.path as osp
 import time
 import datetime
+import skvideo
+skvideo.setFFmpegPath('/usr/local/lib/python3.6/dist-packages/ffmpeg/')
 import skvideo.io as vidio
 import torch, torch.nn as nn, torch.optim as optim
 from torch.autograd import Variable
@@ -489,7 +491,7 @@ def main():
         
     if (epoch+1) % 5 == 0 or (epoch+1) == args.max_epoch:
       print("==> Test: {}".format(epoch))
-      rank1 = test(model, args.size, use_gpu, False)
+      rank1 = test(model, args.size, use_gpu, True)
       is_best = rank1 > best_rank1
       if is_best:
         best_rank1 = rank1
