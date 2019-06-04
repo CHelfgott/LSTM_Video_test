@@ -10,7 +10,7 @@ import skvideo.io as vidio
 import tensorflow as tf
 import argparse
 
-INPUT_SIZE = 512
+INPUT_SIZE = 256
 NUM_FRAMES = 50
 NUM_EPOCHS = 100
 
