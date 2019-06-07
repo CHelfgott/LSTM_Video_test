@@ -10,7 +10,7 @@ import os.path as osp
 import time
 import datetime
 import skvideo
-skvideo.setFFmpegPath('/usr/local/lib/python3.6/dist-packages/ffmpeg/')
+#skvideo.setFFmpegPath('/usr/local/lib/python2.7/dist-packages/ffmpeg/')
 import skvideo.io as vidio
 import torch, torch.nn as nn, torch.optim as optim
 from torch.autograd import Variable
