@@ -400,10 +400,10 @@ def test(model, video_size, use_gpu, save_output=False):
       
       if iter % 20 == 0:
         progress.printb(iter)
-        if iter == 0 and save_output:
-          diffs = np.squeeze(((outputs.data).cpu().numpy())[-1,...] - video_inputs[-1,...])
-          video_output = np.squeeze(np.stack(np.split(np.abs(diffs), 3, axis=1), 4))
-          print(video_output.shape)
+      if iter == num_tests - 1 and save_output:
+        diffs = np.squeeze(((outputs.data).cpu().numpy())[-1,...] - video_inputs[-1,...])
+        video_output = np.squeeze(np.stack(np.split(np.abs(diffs), 3, axis=1), 4))
+        print(video_output.shape)
           
   return losses.avg, video_output
 
@@ -494,7 +494,7 @@ def main():
     if (epoch+1) % 5 == 0 or (epoch+1) == args.max_epoch:
       print("==> Test: {}".format(epoch))
       rank1, video_output = test(model, args.size, use_gpu, True)
-      if video_output:
+      if not video_output is None:
         vidio.vwrite('output_diff.mp4', video_output)
       is_best = rank1 > best_rank1
       if is_best:
