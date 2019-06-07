@@ -377,6 +377,7 @@ def test(model, video_size, use_gpu, save_output=False):
   progress = ProgressMeter(num_tests, 'Test: ', batch_time, losses)
 
   model.eval()
+  video_output = None
   with torch.no_grad():
     end = time.time()
     for iter in range(num_tests):
@@ -403,9 +404,8 @@ def test(model, video_size, use_gpu, save_output=False):
           diffs = np.squeeze(((outputs.data).cpu().numpy())[-1,...] - video_inputs[-1,...])
           video_output = np.squeeze(np.stack(np.split(np.abs(diffs), 3, axis=1), 4))
           print(video_output.shape)
-          vidio.vwrite('output_diff.mp4', video_output)
           
-  return losses.avg
+  return losses.avg, video_output
 
   
 def main():
@@ -493,7 +493,9 @@ def main():
         
     if (epoch+1) % 5 == 0 or (epoch+1) == args.max_epoch:
       print("==> Test: {}".format(epoch))
-      rank1 = test(model, args.size, use_gpu, True)
+      rank1, video_output = test(model, args.size, use_gpu, True)
+      if video_output:
+        vidio.vwrite('output_diff.mp4', video_output)
       is_best = rank1 > best_rank1
       if is_best:
         best_rank1 = rank1
