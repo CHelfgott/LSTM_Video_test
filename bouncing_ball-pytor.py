@@ -10,7 +10,7 @@ import os.path as osp
 import time
 import datetime
 import skvideo
-skvideo.setFFmpegPath('/usr/local/lib/python3.6/dist-packages/ffmpeg/')
+#skvideo.setFFmpegPath('/usr/local/lib/python2.7/dist-packages/ffmpeg/')
 import skvideo.io as vidio
 import torch, torch.nn as nn, torch.optim as optim
 from torch.autograd import Variable
@@ -402,6 +402,7 @@ def test(model, video_size, use_gpu, save_output=False):
         if iter == 0 and save_output:
           diffs = np.squeeze(((outputs.data).cpu().numpy())[-1,...] - video_inputs[-1,...])
           video_output = np.squeeze(np.stack(np.split(np.abs(diffs), 3, axis=1), 4))
+          print(video_output.shape)
           vidio.vwrite('output_diff.mp4', video_output)
           
   return losses.avg
@@ -431,6 +432,7 @@ def main():
   
   if args.just_video:
     out_video = buildBouncingBallVideo(20, [args.size, args.size], NUM_FRAMES)
+    print(out_video.shape)
     vidio.vwrite("test_video.mp4", out_video)
     return
   
