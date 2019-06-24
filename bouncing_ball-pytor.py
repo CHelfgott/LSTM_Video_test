@@ -10,7 +10,7 @@ import os.path as osp
 import time
 import datetime
 import skvideo
-skvideo.setFFmpegPath('/usr/local/lib/python3.6/dist-packages/ffmpeg/')
+#skvideo.setFFmpegPath('/usr/local/lib/python2.7/dist-packages/ffmpeg/')
 import skvideo.io as vidio
 import torch, torch.nn as nn, torch.optim as optim
 from torch.autograd import Variable
@@ -377,6 +377,7 @@ def test(model, video_size, use_gpu, save_output=False):
   progress = ProgressMeter(num_tests, 'Test: ', batch_time, losses)
 
   model.eval()
+  video_output = None
   with torch.no_grad():
     end = time.time()
     for iter in range(num_tests):
@@ -399,13 +400,13 @@ def test(model, video_size, use_gpu, save_output=False):
       
       if iter % 20 == 0:
         progress.printb(iter)
-        if iter == 0 and save_output:
-          diffs = np.squeeze(((outputs.data).cpu().numpy())[-1,...] - video_inputs[-1,...])
-          diffs = (diffs - np.min(diffs)) * (128.0 / (np.max(diffs) - np.min(diffs)))
-          video_output = np.squeeze(np.stack(np.split(np.abs(diffs), 3, axis=1), 4))
-          vidio.vwrite('output_diff.mp4', video_output)
+      if iter == num_tests - 1 and save_output:
+        diffs = np.squeeze(((outputs.data).cpu().numpy())[-1,...] - video_inputs[-1,...])
+        diffs = (diffs - np.min(diffs)) * (128.0 / (np.max(diffs) - np.min(diffs)))
+        video_output = np.squeeze(np.stack(np.split(diffs, 3, axis=1), 4))
+        print(video_output.shape)
           
-  return losses.avg
+  return losses.avg, video_output
 
   
 def main():
@@ -432,6 +433,7 @@ def main():
   
   if args.just_video:
     out_video = buildBouncingBallVideo(20, [args.size, args.size], NUM_FRAMES)
+    print(out_video.shape)
     vidio.vwrite("test_video.mp4", out_video)
     return
   
@@ -492,7 +494,9 @@ def main():
         
     if (epoch+1) % 5 == 0 or (epoch+1) == args.max_epoch:
       print("==> Test: {}".format(epoch))
-      rank1 = test(model, args.size, use_gpu, True)
+      rank1, video_output = test(model, args.size, use_gpu, True)
+      if not video_output is None:
+        vidio.vwrite('output_diff.mp4', video_output)
       is_best = rank1 > best_rank1
       if is_best:
         best_rank1 = rank1
