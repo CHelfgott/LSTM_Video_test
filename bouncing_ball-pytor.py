@@ -402,7 +402,8 @@ def test(model, video_size, use_gpu, save_output=False):
         progress.printb(iter)
       if iter == num_tests - 1 and save_output:
         diffs = np.squeeze(((outputs.data).cpu().numpy())[-1,...] - video_inputs[-1,...])
-        video_output = np.squeeze(np.stack(np.split(np.abs(diffs), 3, axis=1), 4))
+        diffs = (diffs - np.min(diffs)) * (128.0 / (np.max(diffs) - np.min(diffs)))
+        video_output = np.squeeze(np.stack(np.split(diffs, 3, axis=1), 4))
         print(video_output.shape)
           
   return losses.avg, video_output
