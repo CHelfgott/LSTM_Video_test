@@ -7,7 +7,7 @@ Simple video prediction task -- NN test
 
 from bouncing_ball-utils import buildBouncingBallVideo
 from convlstm import ConvLSTM
-from convrnn import Conv2DRNN
+from convrnn import Conv2DRNN, Conv2DRNNCell
 import cv2, numpy as np, os, random, math
 import os.path as osp
 import time
@@ -83,10 +83,10 @@ class VideoNet(nn.Module):
     self.conv = nn.ModuleDict()
     self.device = device
     for i in [3, 6, 12, 24]:
-      self.rnn_layers[str(i)] = Conv2DRNN(i, 3, 2*i, device)
+      self.rnn_layers[str(i)] = Conv2DRNNCell(i, 3, 2*i)
       self.convT[str(i)] = nn.ConvTranspose2d(2*i, i, kernel_size=3, stride=2,
-                                              padding=PADDING, output_padding=1).cuda(device)
-      self.conv[str(i)] = nn.Conv2d(3*i, i, kernel_size=KERNEL_SIZE, padding=PADDING).cuda(device)
+                                              padding=PADDING, output_padding=1)
+      self.conv[str(i)] = nn.Conv2d(3*i, i, kernel_size=KERNEL_SIZE, padding=PADDING)
       
     self.maxpool = nn.MaxPool2d((2,2)).cuda(device)
     self.dropout = nn.Dropout2d(0.1).cuda(device)
@@ -145,8 +145,11 @@ def train(epoch, video_size, model, optimizer_model, use_gpu,
                                            [video_size, video_size], 
                                            NUM_FRAMES)
       video_inputs[i,...] = np.squeeze(np.stack(np.split(video_input, 3, axis=3), 1))
-      
-    inputs = Variable(torch.from_numpy(video_inputs).float())
+
+    data = torch.from_numpy(video_inputs).float()
+    if torch.cuda.is_available():
+      data = data.cuda()
+    inputs = Variable(data)
     print("Built inputs for iter {}".format(iter))
 
     loss = model(inputs, debug)

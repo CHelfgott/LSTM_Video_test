@@ -7,14 +7,12 @@ PADDING = KERNEL_SIZE // 2
 
 class Conv2DRNNCell(nn.Module):
 
-  def __init__(self, input_size, input_dim, hidden_dim, output_dim, kernel_size, bias):
+  def __init__(self, input_dim, hidden_dim, output_dim, kernel_size, bias):
     """
     Initialize Conv2DRNN cell.
     
     Parameters
     ----------
-    input_size: (int, int)
-      Height and width of input tensor as (height, width).
     input_dim: int
       Number of channels of input tensor.
     hidden_dim: int
@@ -28,7 +26,6 @@ class Conv2DRNNCell(nn.Module):
     """
     super(Conv2DRNNCell, self).__init__()
 
-    self.height, self.width = input_size
     self.input_dim  = input_dim
     self.hidden_dim = hidden_dim
     self.output_dim = output_dim
@@ -57,7 +54,14 @@ class Conv2DRNNCell(nn.Module):
 
   # Inputs here is [batch_size, num_inputs, input_features, height, width]    
   def forward(self, inputs, hidden=None):
-    steps = inputs.data.size()[1]
+    b, steps, _, h, w = inputs.size()
+
+    if hidden is not None:
+      raise NotImplementedError()
+    else:
+      # Since the init is done in forward. Can send image size here
+      hidden = self.init_hidden(batch_size=b, image_size=(h, w))
+
     outputs = []
 
     for i in range(steps):
@@ -65,6 +69,8 @@ class Conv2DRNNCell(nn.Module):
       outputs.append(output)
     return hidden, torch.stack(outputs, 1)
 
+  def init_hidden(self, batch_size, height, width):
+    return Variable(torch.zeros(batch_size, self.hidden_dim, height, width)).cuda()
             
 class Conv2DRNN(nn.Module):
   """
@@ -105,8 +111,7 @@ class Conv2DRNN(nn.Module):
     for i in range(0, self.num_layers):
       cur_input_dim = self.input_dim if i == 0 else self.hidden_dim[i-1]
 
-      cell_list.append(Conv2DRNNCell(input_size=(self.height, self.width),
-                                     input_dim=cur_input_dim,
+      cell_list.append(Conv2DRNNCell(input_dim=cur_input_dim,
                                      hidden_dim=self.rnn_hid_dim[i],
                                      output_dim=self.hidden_dim[i],
                                      kernel_size=self.kernel_size[i],
@@ -154,6 +159,12 @@ class Conv2DRNN(nn.Module):
 
     return layer_output_list, last_state_list
 
+  def _init_hidden(self, batch_size):
+    init_states = []
+    for i in range(self.num_layers):
+      init_states.append(self.cell_list[i].init_hidden(batch_size, self.height, self.width))
+    return init_states
+        
   @staticmethod
   def _check_kernel_size_consistency(kernel_size):
     if not (isinstance(kernel_size, tuple) or
