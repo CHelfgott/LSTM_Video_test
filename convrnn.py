@@ -3,7 +3,6 @@ from torch.autograd import Variable
 import torch
 
 KERNEL_SIZE = 3
-PADDING = KERNEL_SIZE // 2
 
 class Conv2DRNNCell(nn.Module):
 
@@ -31,7 +30,7 @@ class Conv2DRNNCell(nn.Module):
     self.output_dim = output_dim
 
     self.kernel_size = KERNEL_SIZE
-    self.padding     = PADDING, PADDING
+    self.padding     = KERNEL_SIZE // 2, KERNEL_SIZE // 2
     self.bias        = bias
         
     self.conv = nn.Conv2d(in_channels=self.input_dim + self.hidden_dim,
