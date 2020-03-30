@@ -5,6 +5,9 @@ Simple video prediction task -- NN test
 @author: Craig
 """
 
+from bouncing_ball-utils import buildBouncingBallVideo
+from convlstm import ConvLSTM
+from convrnn import Conv2DRNN, Conv2DRNNCell
 import cv2, numpy as np, os, random, math
 import os.path as osp
 import time
@@ -18,13 +21,10 @@ import torch.backends.cudnn as cudnn
 import argparse
 import shutil
 
-NUM_DIMS = 3
-
 INPUT_SIZE = 128
 NUM_FRAMES = 100
 NUM_EPOCHS = 100
-KERNEL_SIZE = 3
-PADDING = KERNEL_SIZE // 2
+
 
 def str2bool(v):
     return v.lower() in ("yes", "true", "t", "1")
@@ -70,237 +70,29 @@ class ProgressMeter(object):
     fmt = '{:' + str(num_digits) + 'd}'
     return '[' + fmt + '/' + fmt.format(num_batches) + ']'
 
-
-class BouncingBall:
-  """ A class to store data on a bouncing ball.
-
-    :param int radius: radius of ball
-    :param ndarray([3], int) color: RGB color of ball
-    :param ndarray([NUM_DIMS], float) position: position of ball
-    :param ndarray([NUM_DIMS], float) velocity: velocity of ball
-
-  """  
-
-  def __init__(self, radius, color, position, velocity):
-    self.radius = radius   # Write once
-    self.color = color     # Write once
-    self.position = position
-    self.velocity = velocity
-    
-  def setPosition(self, new_position):
-    self.position = new_position
-    
-  def setVelocity(self, new_velocity):
-    self.velocity = new_velocity
-    
-  def updatePosition(self):
-    self.position += self.velocity
-    
-  def getPosition(self):
-    return self.position
-  
-  def getVelocity(self):
-    return self.velocity
-  
-  def getRadius(self):
-    return self.radius
-  
-  def getColor(self):
-    return self.color
-  
-  
-class BoundingBox:
-  """ A class to store data on a bounding box with reflective walls.
-      One corner is assumed to be at (0,0).
-      Contains utility methods to reflect positions into the box.
-  
-    :param ndarray([NUM_DIMS], int) corner: position of opposite corner.
-    
-  """
-  def __init__(self, corner):
-    self.corner = corner
-    
-  def isInBounds(self, position, dim):
-    return (position[dim] >= 0 and position[dim] <= self.corner[dim])
-  
-  def reflectIntoBox(self, position):
-    new_position = position
-    flips = []
-    for dim in range(len(self.corner)):
-      flips.append(False)
-      if not self.isInBounds(position, dim):
-        new_position[dim] = position[dim] % (2 * self.corner[dim])
-        if new_position[dim] > self.corner[dim]:
-          new_position[dim] = 2 * self.corner[dim] - new_position[dim]
-          flips[dim] = True
-
-    return new_position, flips
-  
-
-def bounceBallInBox(ball, box):
-  ball.updatePosition()
-  new_position, flips = box.reflectIntoBox(ball.getPosition())
-  ball.setPosition(new_position)
-  v = ball.getVelocity()
-  for dim in range(NUM_DIMS):
-    if flips[dim]: v[dim] = -v[dim]
-  ball.setVelocity(v)
-  
-# Assume lightDirection is an ndarray 3-vector with positive z-component.
-def drawBall(ball, vSizes, lightDirection, frame):
-  position = ball.getPosition()
-  color = tuple(ball.getColor())
-  r = ball.getRadius()
-  center = (int(round(position[0])), int(round(position[1])))
-
-  if len(lightDirection) != 3 or lightDirection[2] <= 0 or len(vSizes) < 3:
-    relPosition = position[2:] - np.array(vSizes[2:])/2
-    planeDistSq = np.sum(relPosition * relPosition)
-    if r*r <= planeDistSq: return
-    inPlaneRadius = int(round(np.sqrt(r*r - planeDistSq)))
-    cv2.circle(frame, center, inPlaneRadius, color, -1)
-    return
-    
-  relPosition = position[3:] - np.array(vSizes[3:])/2
-  distSq = np.sum(relPosition * relPosition)
-  if r*r <= distSq: return
-  newRadius = int(np.sqrt(r*r - distSq))
-  xmin = max(0, center[0] - newRadius)
-  xmax = min(vSizes[0], center[0] + newRadius)
-  ymin = max(0, center[1] - newRadius)
-  ymax = min(vSizes[1], center[1] + newRadius)
-  
-  xyMesh = np.mgrid[xmin-center[0] : xmax-center[0], ymin-center[1] : ymax-center[1]]
-  rSqFn = np.sum(xyMesh * xyMesh, axis=0)
-  dzSqFn = np.maximum((r*r - distSq) * np.ones(rSqFn.shape) - rSqFn, np.zeros(rSqFn.shape))
-  dzFn = np.sqrt(dzSqFn)
-  incidence = xyMesh[0] * lightDirection[0] + xyMesh[1] * lightDirection[1] - dzFn * lightDirection[2]
-  incidence /= newRadius * np.sqrt(np.sum(lightDirection * lightDirection))
-  toEye = dzFn / newRadius
-  fadeFactor = 0.05 * (dzFn > 0)
-  fadeFactor -= 0.95 * incidence * (incidence < 0) * (dzFn > 0)
-  fadeFactor *= toEye
-
-  newColor = np.stack([color[i] * fadeFactor for i in range(3)], axis=2)
-  frame[xmin:xmax, ymin:ymax, :] = np.where(
-    np.expand_dims(dzFn, axis=2) > 0, newColor, frame[xmin:xmax, ymin:ymax, :])
-
-  
-def buildBouncingBallVideo(nBalls, vidSize, nFrames):
-  print("Building video with {} balls, size {}, {} frames".format(nBalls, vidSize, nFrames))
-  minBallSize = 25
-  maxBallSize = int(min(vidSize[0], vidSize[1]) / 3)
-  balls = []
-  vSizes = [vidSize[0], vidSize[1]]
-  for dim in range(2, NUM_DIMS):
-    vSizes.append(random.randint(vidSize[0], vidSize[1]))
-  box = BoundingBox(vSizes)
-  for i in range(nBalls):
-    color = [random.randint(0,255),random.randint(0,255),random.randint(0,255)]
-    position = np.zeros(NUM_DIMS)
-    velocity = np.zeros(NUM_DIMS)
-    for dim in range(NUM_DIMS):
-      position[dim] = random.uniform(0., vSizes[dim])
-      velocity[dim] = random.uniform(-vSizes[dim]/(np.sqrt(NUM_DIMS) * 32.),
-                                     vSizes[dim]/(np.sqrt(NUM_DIMS) * 32.))
-    velocity[0] = random.uniform(-vSizes[0]/32., vSizes[0]/32.)
-    velocity[1] = random.uniform(-vSizes[1]/32., vSizes[1]/32.)
-    balls.append(BouncingBall(random.randint(minBallSize, maxBallSize),
-                              color, position, velocity))
-  
-  lightDir = np.array([random.uniform(-3.,3.), random.uniform(-3.,3.), 1.])
-  lightVel = np.array([random.uniform(-0.001,0.001), random.uniform(-0.001,0.001), 0.])
-  videoArray = np.zeros([nFrames, vidSize[1], vidSize[0], 3], dtype=np.uint8)
-  for frameCnt in range(nFrames):
-    frame = np.zeros([vidSize[1], vidSize[0], 3], dtype=np.uint8)
-    for ball in balls:
-      drawBall(ball, vSizes, lightDir, frame)
-      lightDir += lightVel
-      bounceBallInBox(ball, box)     
-    videoArray[frameCnt, ...] = frame
-  return videoArray
-
-
-class Conv2DRNN(nn.Module):
-  """
-  Generate a convolutional RNN cell.
-  """
-  
-  # input size is [batch_size, in_features, height, width]
-  # The hidden layer is [batch_size, hidden_layers, height, width]
-  # The output layer is [batch_size, out_features, height, width]
-  def __init__(self, in_features, hidden_layers, out_features, device):
-    super(Conv2DRNN, self).__init__()
-    self.inf = in_features
-    self.hidl = hidden_layers
-    self.outf = out_features
-    self.device = device
-    self.Gates = nn.Conv2d(in_features + hidden_layers,
-                           hidden_layers + out_features,
-                           KERNEL_SIZE, padding=PADDING).cuda(device)
-    self.activation = nn.LeakyReLU(0.1).cuda(device)
-    
-  def step(self, input_, prev_hidden=None):
-    # get batch and spatial sizes
-    input_.cuda(self.device)
-    
-    batch_size = input_.data.size()[0]
-    spatial_size = input_.data.size()[2:]
-    
-    # generate empty prev_state, if None is provided
-    if prev_hidden is None:
-      state_size = [batch_size, self.hidl] + list(spatial_size)
-      prev_hidden = (Variable(torch.zeros(state_size))).cuda(self.device)
-    else:
-      prev_hidden.cuda(self.device)    
-    
-    # data size is [batch, channels, height, width]
-    stacked_inputs = torch.cat((input_, prev_hidden), 1)
-    gates = self.Gates(stacked_inputs)  
-    gates = self.activation(gates)
-    
-    hidden = gates[:, 0:self.hidl, :,:]
-    output_layer = gates[:, self.hidl:, :,:]
-
-    return hidden, output_layer
-	
-  # Inputs here is [batch_size, num_inputs, input_features, height, width]	
-  def forward(self, inputs, hidden=None):
-    inputs.cuda(self.device)
-    if not hidden is None:
-      hidden.cuda(self.device)
-    steps = inputs.data.size()[1]
-    outputs = []
-
-    for i in range(steps):
-      input = inputs[:,i,...].squeeze()
-      hidden, output = self.step(input, hidden)
-      outputs.append(output)
-    return hidden, torch.stack(outputs, 1)
-    
-
 class VideoNet(nn.Module):
   """
   Generate a network for predicting video
   """
   
-  def __init__(self, device, **kwargs):
+  def __init__(self, device, debug=False, **kwargs):
     super(VideoNet, self).__init__()
     
     self.rnn_layers = nn.ModuleDict()
     self.convT = nn.ModuleDict()
     self.conv = nn.ModuleDict()
     self.device = device
+    self.debug = debug
     for i in [3, 6, 12, 24]:
-      self.rnn_layers[str(i)] = Conv2DRNN(i, 3, 2*i, device)
+      self.rnn_layers[str(i)] = Conv2DRNNCell(i, 3, 2*i)
       self.convT[str(i)] = nn.ConvTranspose2d(2*i, i, kernel_size=3, stride=2,
-                                              padding=PADDING, output_padding=1).cuda(device)
-      self.conv[str(i)] = nn.Conv2d(3*i, i, kernel_size=KERNEL_SIZE, padding=PADDING).cuda(device)
+                                              padding=PADDING, output_padding=1)
+      self.conv[str(i)] = nn.Conv2d(3*i, i, kernel_size=KERNEL_SIZE, padding=PADDING)
       
     self.maxpool = nn.MaxPool2d((2,2)).cuda(device)
     self.dropout = nn.Dropout2d(0.1).cuda(device)
 
-  def forward(self, batch_input):
+  def forward(self, batch_input, debug=False):
     loss = nn.MSELoss(reduction='mean')
     rnn_outputs = {}
     batch_input.cuda(self.device)
@@ -315,6 +107,8 @@ class VideoNet(nn.Module):
 	  # rnn_outputs is [NBatch, NFrames, 2*i, H(layer), W(layer)]
       layer = torch.stack([self.dropout(self.maxpool(x)) for x in torch.unbind(rnn_outputs[i], 0)], 0)
 	  # layer is [NBatch, NFrames, 2*i, H/2, W/2]
+      if self.debug:
+        print(self.rnn_layers[str(i)].weight.data)
     
     for i in [24, 12, 6, 3]:
       layer = torch.stack([self.dropout(self.convT[str(i)].forward(x)) for x in torch.unbind(layer, 0)], 0)
@@ -324,7 +118,9 @@ class VideoNet(nn.Module):
       layer = torch.stack([self.conv[str(i)].forward(x) 
                            for x in torch.unbind(layer, 0)], 0)
       # layer is [NBatch, NFrames, i, 2*H(layer), 2*W(layer)]
-	
+      if self.debug:
+        print(self.convT[str(i)].weight.data)
+        
     if not self.training:
       return loss(batch_input, layer), layer
     
@@ -349,8 +145,11 @@ def train(epoch, video_size, model, optimizer_model, use_gpu,
                                            [video_size, video_size], 
                                            NUM_FRAMES)
       video_inputs[i,...] = np.squeeze(np.stack(np.split(video_input, 3, axis=3), 1))
-      
-    inputs = Variable(torch.from_numpy(video_inputs).float())
+
+    data = torch.from_numpy(video_inputs).float()
+    if torch.cuda.is_available():
+      data = data.cuda()
+    inputs = Variable(data)
     print("Built inputs for iter {}".format(iter))
 
     loss = model(inputs)
@@ -402,8 +201,7 @@ def test(model, video_size, use_gpu, save_output=False):
         progress.printb(iter)
       if iter == num_tests - 1 and save_output:
         diffs = np.squeeze(((outputs.data).cpu().numpy())[-1,...] - video_inputs[-1,...])
-        diffs = (diffs - np.min(diffs)) * (128.0 / (np.max(diffs) - np.min(diffs)))
-        video_output = np.squeeze(np.stack(np.split(diffs, 3, axis=1), 4))
+        video_output = np.squeeze(np.stack(np.split(np.abs(diffs), 3, axis=1), 4)).astype(int)
         print(video_output.shape)
           
   return losses.avg, video_output
@@ -413,6 +211,8 @@ def main():
   parser = argparse.ArgumentParser(description='Train video prediction model')
   parser.add_argument('--just_video', type=str2bool, default=False,
                       help="flag to just generate one video")
+  parser.add_argument('--debug', type=str2bool, default=False,
+                      help="outputs weights in training for debug purposes")
   parser.add_argument('--size', type=int, default=512,
                       help="size of the square video patch (default: 512)")
   parser.add_argument('--max-epoch', default=NUM_EPOCHS, type=int,
@@ -455,8 +255,9 @@ def main():
     print("Currently using CPU (GPU is highly recommended)")
 	
   print("Initializing model")
-  model = VideoNet(device)
-  print("Model size: {:.5f}M".format(sum(p.numel() for p in model.parameters())/1000000.0))	
+  model = VideoNet(device, args.debug)
+  print("Model size: {:.5f}M".format(sum(p.numel() for p in model.parameters())/1000000.0))
+  print(model)
   
   start_epoch = args.start_epoch
 
@@ -496,7 +297,7 @@ def main():
       print("==> Test: {}".format(epoch))
       rank1, video_output = test(model, args.size, use_gpu, True)
       if not video_output is None:
-        vidio.vwrite('output_diff.mp4', video_output)
+        vidio.vwrite('output_diff{:d}.mp4'.format(epoch), video_output)
       is_best = rank1 > best_rank1
       if is_best:
         best_rank1 = rank1
