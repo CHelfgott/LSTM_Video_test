@@ -2,11 +2,9 @@ import torch.nn as nn
 from torch.autograd import Variable
 import torch
 
-KERNEL_SIZE = 3
-
 class Conv2DRNNCell(nn.Module):
 
-  def __init__(self, input_dim, hidden_dim, output_dim, bias=True):
+  def __init__(self, input_dim, hidden_dim, output_dim, kernel_size, padding, bias=True):
     """
     Initialize Conv2DRNN cell.
     
@@ -20,6 +18,8 @@ class Conv2DRNNCell(nn.Module):
       Number of channels of output tensor.
     kernel_size: (int, int)
       Size of the convolutional kernel.
+    padding: (int, int)
+      Size of the padding.  
     bias: bool
       Whether or not to add the bias.
     """
@@ -29,8 +29,8 @@ class Conv2DRNNCell(nn.Module):
     self.hidden_dim = hidden_dim
     self.output_dim = output_dim
 
-    self.kernel_size = KERNEL_SIZE
-    self.padding     = KERNEL_SIZE // 2, KERNEL_SIZE // 2
+    self.kernel_size = kernel_size
+    self.padding     = padding
     self.bias        = bias
         
     self.conv = nn.Conv2d(in_channels=self.input_dim + self.hidden_dim,

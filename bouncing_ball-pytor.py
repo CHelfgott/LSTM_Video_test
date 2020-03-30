@@ -25,6 +25,8 @@ INPUT_SIZE = 128
 NUM_FRAMES = 100
 NUM_EPOCHS = 100
 
+KERNEL_SIZE = 3
+PADDING = KERNEL_SIZE // 2
 
 def str2bool(v):
     return v.lower() in ("yes", "true", "t", "1")
@@ -84,13 +86,14 @@ class VideoNet(nn.Module):
     self.device = device
     self.debug = debug
     for i in [3, 6, 12, 24]:
-      self.rnn_layers[str(i)] = Conv2DRNNCell(i, 3, 2*i)
+      self.rnn_layers[str(i)] = Conv2DRNNCell(i, 3, 2*i, kernel_size=(KERNEL_SIZE, KERNEL_SIZE),
+                                              padding=(PADDING, PADDING))
       self.convT[str(i)] = nn.ConvTranspose2d(2*i, i, kernel_size=3, stride=2,
                                               padding=PADDING, output_padding=1)
       self.conv[str(i)] = nn.Conv2d(3*i, i, kernel_size=KERNEL_SIZE, padding=PADDING)
       
-    self.maxpool = nn.MaxPool2d((2,2)).cuda(device)
-    self.dropout = nn.Dropout2d(0.1).cuda(device)
+    self.maxpool = nn.MaxPool2d((2,2))
+    self.dropout = nn.Dropout2d(0.1)
 
   def forward(self, batch_input, debug=False):
     loss = nn.MSELoss(reduction='mean')
