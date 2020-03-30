@@ -7,7 +7,7 @@ PADDING = KERNEL_SIZE // 2
 
 class Conv2DRNNCell(nn.Module):
 
-  def __init__(self, input_dim, hidden_dim, output_dim, kernel_size, bias):
+  def __init__(self, input_dim, hidden_dim, output_dim, bias=True):
     """
     Initialize Conv2DRNN cell.
     
@@ -30,8 +30,8 @@ class Conv2DRNNCell(nn.Module):
     self.hidden_dim = hidden_dim
     self.output_dim = output_dim
 
-    self.kernel_size = kernel_size
-    self.padding     = kernel_size[0] // 2, kernel_size[1] // 2
+    self.kernel_size = KERNEL_SIZE
+    self.padding     = PADDING, PADDING
     self.bias        = bias
         
     self.conv = nn.Conv2d(in_channels=self.input_dim + self.hidden_dim,
