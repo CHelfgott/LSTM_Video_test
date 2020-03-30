@@ -5,7 +5,7 @@ Simple video prediction task -- NN test
 @author: Craig
 """
 
-from bouncing_ball-utils import buildBouncingBallVideo
+from bouncing_ball_utils import buildBouncingBallVideo
 from convlstm import ConvLSTM
 from convrnn import Conv2DRNN, Conv2DRNNCell
 import cv2, numpy as np, os, random, math
