@@ -75,13 +75,14 @@ class VideoNet(nn.Module):
   Generate a network for predicting video
   """
   
-  def __init__(self, device, **kwargs):
+  def __init__(self, device, debug=False, **kwargs):
     super(VideoNet, self).__init__()
     
     self.rnn_layers = nn.ModuleDict()
     self.convT = nn.ModuleDict()
     self.conv = nn.ModuleDict()
     self.device = device
+    self.debug = debug
     for i in [3, 6, 12, 24]:
       self.rnn_layers[str(i)] = Conv2DRNNCell(i, 3, 2*i)
       self.convT[str(i)] = nn.ConvTranspose2d(2*i, i, kernel_size=3, stride=2,
@@ -106,7 +107,7 @@ class VideoNet(nn.Module):
 	  # rnn_outputs is [NBatch, NFrames, 2*i, H(layer), W(layer)]
       layer = torch.stack([self.dropout(self.maxpool(x)) for x in torch.unbind(rnn_outputs[i], 0)], 0)
 	  # layer is [NBatch, NFrames, 2*i, H/2, W/2]
-      if debug:
+      if self.debug:
         print(self.rnn_layers[str(i)].weight.data)
     
     for i in [24, 12, 6, 3]:
@@ -117,7 +118,7 @@ class VideoNet(nn.Module):
       layer = torch.stack([self.conv[str(i)].forward(x) 
                            for x in torch.unbind(layer, 0)], 0)
       # layer is [NBatch, NFrames, i, 2*H(layer), 2*W(layer)]
-      if debug:
+      if self.debug:
         print(self.convT[str(i)].weight.data)
         
     if not self.training:
@@ -127,8 +128,7 @@ class VideoNet(nn.Module):
 	
   
 def train(epoch, video_size, model, optimizer_model, use_gpu,
-          samples_per_epoch = 1000, batch_size=10,
-          debug = False):
+          samples_per_epoch = 1000, batch_size=10):
   losses = AverageMeter('Loss', ':6.4f')
   batch_time = AverageMeter('Time', ':6.3f')
   end = time.time()
@@ -152,7 +152,7 @@ def train(epoch, video_size, model, optimizer_model, use_gpu,
     inputs = Variable(data)
     print("Built inputs for iter {}".format(iter))
 
-    loss = model(inputs, debug)
+    loss = model(inputs)
     losses.update(loss, batch_size)
 
     optimizer_model.zero_grad()
@@ -201,7 +201,7 @@ def test(model, video_size, use_gpu, save_output=False):
         progress.printb(iter)
       if iter == num_tests - 1 and save_output:
         diffs = np.squeeze(((outputs.data).cpu().numpy())[-1,...] - video_inputs[-1,...])
-        video_output = np.squeeze(np.stack(np.split(np.abs(diffs), 3, axis=1), 4))
+        video_output = np.squeeze(np.stack(np.split(np.abs(diffs), 3, axis=1), 4)).astype(int)
         print(video_output.shape)
           
   return losses.avg, video_output
@@ -211,6 +211,8 @@ def main():
   parser = argparse.ArgumentParser(description='Train video prediction model')
   parser.add_argument('--just_video', type=str2bool, default=False,
                       help="flag to just generate one video")
+  parser.add_argument('--debug', type=str2bool, default=False,
+                      help="outputs weights in training for debug purposes")
   parser.add_argument('--size', type=int, default=512,
                       help="size of the square video patch (default: 512)")
   parser.add_argument('--max-epoch', default=NUM_EPOCHS, type=int,
@@ -253,7 +255,7 @@ def main():
     print("Currently using CPU (GPU is highly recommended)")
 	
   print("Initializing model")
-  model = VideoNet(device)
+  model = VideoNet(device, args.debug)
   print("Model size: {:.5f}M".format(sum(p.numel() for p in model.parameters())/1000000.0))
   print(model)
   
