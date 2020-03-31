@@ -59,7 +59,7 @@ class Conv2DRNNCell(nn.Module):
       raise NotImplementedError()
     else:
       # Since the init is done in forward. Can send image size here
-      hidden = self.init_hidden(batch_size=b, h, w)
+      hidden = self.init_hidden(b, h, w)
 
     outputs = []
 
