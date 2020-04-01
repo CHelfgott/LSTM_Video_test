@@ -28,9 +28,6 @@ NUM_EPOCHS = 100
 KERNEL_SIZE = 3
 PADDING = KERNEL_SIZE // 2
 
-def str2bool(v):
-    return v.lower() in ("yes", "true", "t", "1")
-
 
 class AverageMeter(object):
   """Computes and stores the average and current value"""
@@ -130,7 +127,7 @@ class VideoNet(nn.Module):
     return loss(batch_input, layer)
 	
   
-def train(epoch, video_size, model, optimizer_model, use_gpu,
+def train(epoch, video_size, model, optimizer_model,
           samples_per_epoch = 1000, batch_size=10):
   losses = AverageMeter('Loss', ':6.4f')
   batch_time = AverageMeter('Time', ':6.3f')
@@ -170,7 +167,7 @@ def train(epoch, video_size, model, optimizer_model, use_gpu,
     print(epoch, loss.item())
     
     
-def test(model, video_size, use_gpu, save_output=False):
+def test(model, video_size, save_output=False):
   num_tests = 100
   batch_size = 15
   
@@ -209,12 +206,23 @@ def test(model, video_size, use_gpu, save_output=False):
           
   return losses.avg, video_output
 
+def evaluate(model, video_file):
+  model.eval()
+  with open(video_file) as vf:
+    video_inputs = np.expand_dims(np.transpose(vidio.vread(vf),(0,3,1,2)), axis=0)
+  inputs = Variable(torch.from_numpy(video_inputs).float())
+  
+  loss, outputs = model(inputs)
+  diffs = np.squeeze(((outputs.data).cpu().numpy())[-1,...] - video_inputs[-1,...])
+  video_output = np.squeeze(np.stack(np.split(np.abs(diffs), 3, axis=1), 4)).astype(int)
+
+  return loss, video_output
   
 def main():
   parser = argparse.ArgumentParser(description='Train video prediction model')
-  parser.add_argument('--just_video', type=str2bool, default=False,
+  parser.add_argument('--just_video', action='store_true',
                       help="flag to just generate one video")
-  parser.add_argument('--debug', type=str2bool, default=False,
+  parser.add_argument('--debug', action='store_true',
                       help="outputs weights in training for debug purposes")
   parser.add_argument('--size', type=int, default=512,
                       help="size of the square video patch (default: 512)")
@@ -227,7 +235,9 @@ def main():
   parser.add_argument('--lr', '--learning-rate', default=0.0003, type=float,
                       help="initial learning rate")                    
   parser.add_argument('--resume', type=str, default='', metavar='PATH')
-  parser.add_argument('--evaluate', action='store_true', help="evaluation only")
+  parser.add_argument('--test', action='store_true', help="test evaluation only")
+  parser.add_argument('--evaluate', type=str, default='',
+                      help="evaluate on an input video")
   parser.add_argument('--save-dir', type=str, default='logs')
   parser.add_argument('--use-cpu', action='store_true', help="use cpu")
   parser.add_argument('--gpu-devices', default='0', type=str,
@@ -245,7 +255,7 @@ def main():
   if args.use_cpu: use_gpu = False
   device = torch.device('cuda:0' if use_gpu else 'cpu')
 
-  if not args.evaluate:
+  if not args.test:
     print(osp.join(args.save_dir, 'log_train.txt'))
   else:
     print(osp.join(args.save_dir, 'log_test.txt'))
@@ -279,10 +289,18 @@ def main():
   else:
     print("Not using GPU")
 
-  if args.evaluate:
-    print("Evaluate only")
-    test(model, args.size, use_gpu)
+  if args.test:
+    print("Evaluate test score only")
+    test(model, args.size)
     return
+    
+  if args.evaluate:
+    print("Evaluate performance on input video")
+    score, video_output = evaluate(model, args.evaluate)
+    print("Score = " + str(score))
+    if not video_output is None:
+      vidio.vwrite('evaluate_diff.mp4', video_output)
+    return  
 
   start_time = time.time()
   train_time = 0
@@ -292,13 +310,13 @@ def main():
 
   for epoch in range(start_epoch, args.max_epoch):
     start_train_time = time.time()
-    train(epoch, args.size, model, optimizer_model, use_gpu)
+    train(epoch, args.size, model, optimizer_model)
     train_time += time.time() - start_train_time
     print("Trained epoch {}".format(epoch))
         
     if (epoch+1) % 5 == 0 or (epoch+1) == args.max_epoch:
       print("==> Test: {}".format(epoch))
-      rank1, video_output = test(model, args.size, use_gpu, True)
+      rank1, video_output = test(model, args.size, True)
       if not video_output is None:
         vidio.vwrite('output_diff{:d}.mp4'.format(epoch), video_output)
       is_best = rank1 > best_rank1
