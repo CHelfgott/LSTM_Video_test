@@ -211,6 +211,13 @@ def evaluate(model, video_file):
   vf_data = vidio.vread(video_file)
   print('Test video size: ')
   print(vf_data.shape)
+  nf, h, w, _ = vf_data.shape
+  if nf > 256:
+    vf_data = vf_data[:256,...]
+  if h > 256:
+    vf_data = [:, h/2 - 128 : h/2 + 128, ...]
+  if w > 256:
+    vf_data = [:,:, w/2 - 128 : w/2 + 128, ...]
   video_inputs = np.expand_dims(np.transpose(vf_data,(0,3,1,2)), axis=0)
   inputs = Variable(torch.from_numpy(video_inputs).float())
   
