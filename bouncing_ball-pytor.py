@@ -215,9 +215,9 @@ def evaluate(model, video_file):
   if nf > 256:
     vf_data = vf_data[:256,...]
   if h > 256:
-    vf_data = [:, h/2 - 128 : h/2 + 128, ...]
+    vf_data = vf_data[:, h/2 - 128 : h/2 + 128, ...]
   if w > 256:
-    vf_data = [:,:, w/2 - 128 : w/2 + 128, ...]
+    vf_data = vf_data[:,:, w/2 - 128 : w/2 + 128, ...]
   video_inputs = np.expand_dims(np.transpose(vf_data,(0,3,1,2)), axis=0)
   inputs = Variable(torch.from_numpy(video_inputs).float())
   
