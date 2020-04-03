@@ -208,11 +208,10 @@ def test(model, video_size, save_output=False):
 
 def evaluate(model, video_file):
   model.eval()
-  with open(video_file) as vf:
-    vf_data = vidio.vread(vf)
-    print('Test video size: ')
-    print(vf_data.shape())
-    video_inputs = np.expand_dims(np.transpose(vf_data,(0,3,1,2)), axis=0)
+  vf_data = vidio.vread(video_file)
+  print('Test video size: ')
+  print(vf_data.shape())
+  video_inputs = np.expand_dims(np.transpose(vf_data,(0,3,1,2)), axis=0)
   inputs = Variable(torch.from_numpy(video_inputs).float())
   
   loss, outputs = model(inputs)
