@@ -213,7 +213,7 @@ def evaluate(model, video_file):
   print(vf_data.shape)
   nf, h, w, _ = vf_data.shape
   if nf > 128:
-    vf_data = vf_data[:128,...]
+    vf_data = vf_data[nf/2 - 64 : nf/2 + 64,...]
   if h > 128:
     vf_data = vf_data[:, h/2 - 64 : h/2 + 64, ...]
   if w > 128:
@@ -222,7 +222,8 @@ def evaluate(model, video_file):
   inputs = Variable(torch.from_numpy(video_inputs).float())
   
   loss, outputs = model(inputs)
-  diffs = np.squeeze(((outputs.data).cpu().numpy())[-1,...] - video_inputs[-1,...])
+  out_data = (outputs.data).cpu().numpy())[-1,...]
+  diffs = np.abs(np.squeeze(out_data - video_inputs[-1,...]))
   video_output = np.squeeze(np.stack(np.split(np.abs(diffs), 3, axis=1), 4)).astype(int)
 
   return loss, video_output
